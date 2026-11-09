@@ -20,6 +20,7 @@ test-results/
 # Local files
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
 .claude/settings.local.json
