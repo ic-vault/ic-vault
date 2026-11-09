@@ -1,6 +1,6 @@
 # ADR 0001: Toolchain and pinned skills
 
-Status: Accepted
+Status: Accepted, by the merge of the pull request of task M0-02
 Date: 2026-11-09
 Task: M0-01 for the tools, M0-02 for this record, the skills and the checks of spec 8.4
 Decided by: the pull requests of tasks M0-01 and M0-02, under the rule of spec 8.4
@@ -16,8 +16,9 @@ Which versions of the toolchain, the libraries and the official ICP skills does 
 Everything that is pinned is the newest release that was at least 7 days old on the day it was pinned. That covers tools, npm packages, crates, container images and skill commits. Exact versions only.
 
 - pnpm enforces the rule for npm packages through `minimumReleaseAge` in `pnpm-workspace.yaml`.
-- For everything else the agent applies it by hand and records the release date.
+- For everything else the agent applies it by hand. The pull request names each version and its release date.
 - A security fix that cannot wait 7 days goes through `minimumReleaseAgeExclude` and an ADR of its own, as spec 8.4 says.
+- Which dependencies need an ADR, and which only a line in the pull request, is in the section "Dependencies" of `AGENTS.md`.
 
 ### Tools, pinned in M0-01
 
@@ -56,7 +57,10 @@ None of them is in the repository yet. Each enters with the first task that need
 
 Spec 8.4 also allows "one small QR generator" without naming one. The task that needs it names it in an ADR.
 
-**Still open: the `getrandom` check of spec 8.4.** Among the official skills, only the vetKeys skill describes the Wasm workaround: the crate `ic-dummy-getrandom-for-wasm` or a `getrandom` shim, otherwise the canister traps. That skill is not pinned, because the network key is deferred. No crate is in the repository yet, so nothing can be checked. Task M0-05 runs `cargo tree -i getrandom` on the first Cargo workspace and records the result.
+### Still open, for task M0-05
+
+- **The `getrandom` check of spec 8.4.** Among the official skills, only the vetKeys skill describes the Wasm workaround: the crate `ic-dummy-getrandom-for-wasm` or a `getrandom` shim, otherwise the canister traps. That skill is not pinned, because the network key is deferred. No crate is in the repository yet. M0-05 runs `cargo tree -i getrandom` on the first Cargo workspace and records the result.
+- **`ic-wasm` and the recipes.** The pinned icp-cli skill says the official recipes, `@dfinity/rust` among them, need `ic-wasm`, npm package `@icp-sdk/ic-wasm`. icp-cli refuses a recipe without a version, but the recipe is still fetched from GitHub. M0-05 decides between the Rust recipe and its own build steps, and pins `ic-wasm` and the recipe version under the 7-day rule.
 
 ### Agent skills, pinned in M0-02
 
@@ -65,55 +69,68 @@ Spec 8.4 also allows "one small QR generator" without naming one. The task that 
 | Source | https://github.com/dfinity/icskills, Apache-2.0 |
 | Commit | `1c28dd2035fd9890ac0953661eb78ae7ee603e4d`, 2026-11-02, signature verified by GitHub |
 | Skills | icp-cli, canister-security, internet-identity, stable-memory, certified-variables, cycles-management |
-| Installed with | `skills` 1.7.5, the official CLI from npm. 1.7.6 of 2026-11-03 was refused under the rule |
+| Installed with | the `skills` CLI of Vercel Labs, which the icskills README uses, version 1.7.5. 1.7.6 of 2026-11-03 was refused under the rule |
 | Claude Code reads | `.claude/skills/` |
 | Cursor and Codex read | `.agents/skills/` |
 
 - The six skills are the ones spec 11.1 names. Not pinned: vetkeys, deferred with the network key. Also custom-domains, because the vault uses a gateway domain, see ADR 0002. And the skills for Motoko, tokens and other chains, which the vault does not use.
 - Two newer commits change a pinned skill. On 2026-11-06 the internet-identity skill was split into five skills, and on 2026-11-09 its description was shortened. The monthly upkeep task takes them once they are 7 days old.
-- The two folders hold copies, not symlinks. Symlinks break on a Windows checkout. Both folders are identical.
-- The installed files equal GitHub's archive of the commit, byte for byte.
-- The CLI's lock file `skills-lock.json` is not committed. It records the temporary path the skills were installed from, not the commit. The hashes it computed are listed here instead:
+- The two folders hold copies, not symlinks. Symlinks break on a Windows checkout.
+- The CLI's lock file `skills-lock.json` is not committed. It records the temporary path the skills were installed from, not the commit.
 
-| Skill | Hash computed by the CLI |
+**How to check the copies.** Each skill folder in the repository has the same git tree id as the folder in the pinned commit. Compare `git rev-parse HEAD:.agents/skills/<name>` and `git rev-parse HEAD:.claude/skills/<name>` with the tree ids below, which `gh api repos/dfinity/icskills/contents/skills?ref=<commit>` lists. All twelve matched on 2026-11-09.
+
+| Skill | Git tree id at the pinned commit |
 |---|---|
-| canister-security | `8d00ec4ffd76f1d9347032e85899e829acd172d66d9c7d23c89d21b0451d2bf2` |
-| certified-variables | `bf18b5475b7a98f30bb7a9d8c783450d8fc62f34dfb1ef145e8236d285e85595` |
-| cycles-management | `126166ed1b9ec058f109b98b67d3b4759e8f1a544b55566d1c47b8a8c30a2351` |
-| icp-cli | `22935bd2721cf3feafa202648038e0d582b7b6fc1997b05add4a7fedb9ac7c71` |
-| internet-identity | `5df7465da671cd0311862dbd096bdc1dc2d8e83ad5541be052a5b0d6c87c7a4e` |
-| stable-memory | `b4233626420d3d473cab2cf96bbe70204ded9387c80077487b9fe6a7e413c2d3` |
+| canister-security | `d16eff57dedcfd55f1b30071d65f6b352421bcbd` |
+| certified-variables | `de3e019543e33ed2b941cb0ec2c9e096c36becd0` |
+| cycles-management | `1657e718eb68040ddffca80bdacc2a0cb681060c` |
+| icp-cli | `4c882092056568eff25a974c7b3232911bb71084` |
+| internet-identity | `ae0f3c3491c48a02942ccdd73abe6bae94949918` |
+| stable-memory | `94a121f8bf7f432736cbb6527f3b67d1eab4bf2d` |
 
-Two instructions in the pinned skills conflict with `AGENTS.md`, and `AGENTS.md` wins:
+**Where the skills disagree with the project.** The project files win, as `AGENTS.md` says. Known cases:
 
-- The icp-cli skill installs icp-cli globally with npm. The project uses its pinned copy through `pnpm exec icp`.
-- The icp-cli skill shows `icp deploy --mode reinstall`. No script may contain a reinstall mode, hard rule 12.
+| Skill says | The project does |
+|---|---|
+| Install icp-cli and `ic-wasm` globally with npm | Uses the pinned copies through `pnpm exec`. Rule 19 of `AGENTS.md` |
+| `icp deploy --mode reinstall` | No script contains a reinstall mode. Rule 12 |
+| `icp deploy -e ic` for mainnet | Scripts name the install mode of every mainnet install, and `icp deploy` does not appear in them. Section 6.2 of the plan. Agents never touch mainnet |
+| `icp cycles buy` with a card | Agents never buy anything and never touch mainnet. Funding follows `docs/runbooks/top-up.md`, written in M4-05 |
+| `@icp-sdk/core` pinned to `^6` | Exact versions only. Rule 5 |
+
+**The container image broke the rule once.** The install ran in `node:26.13.0-slim`, pulled by its tag. Docker Hub shows that tag was last pushed on 2026-11-05, four days before. The result does not depend on the image, because the installed files equal the pinned commit byte for byte. The procedure below pins the image by digest.
 
 ## How to update the skills
 
-The monthly upkeep task of spec Appendix E does this.
+The monthly upkeep task of spec Appendix E does this. The pull request needs the owner's approval, level R2 in `AGENTS.md`.
 
-1. Pick the newest commit of `dfinity/icskills` that is at least 7 days old, and the newest `skills` release that is at least 7 days old.
-2. Read the diff of the pinned skills since the last commit. Skills run with full agent permissions, so read them like code. Look for instructions that conflict with `AGENTS.md`, install tools, or send data anywhere.
-3. In an empty folder, run the command below with the new commit, the new CLI version, and a `--before` date 7 days before the run. The CLI's telemetry stays off.
+1. Pick the newest commit of `dfinity/icskills`, the newest `skills` release and the newest `node` image digest that are each at least 7 days old.
+2. Read the diff of the pinned skills since the last commit. Skills run with full agent permissions, so read them like code. Look for instructions that conflict with the project, install tools, or send data anywhere. Add new conflicts to the table above.
+3. In an empty folder, run the command below with the new commit, image digest, CLI version and a `--before` date 7 days before the run. The CLI's telemetry stays off.
 4. Replace `.claude/skills/` and `.agents/skills/` with the folders it created. Delete its `skills-lock.json`.
-5. Record the new commit, the CLI version and the hashes in a new ADR that supersedes this section.
+5. Compare the git tree ids, as above.
+6. Write a new ADR with the commit, the CLI version, the image digest and the tree ids. This ADR then gets the status "Partly superseded", for the skills.
 
 ```bash
-docker run --rm -e DISABLE_TELEMETRY=1 -e DO_NOT_TRACK=1 -v "$PWD:/w" -w /w node:26.13.0-slim sh -c '
+docker run --rm -e DISABLE_TELEMETRY=1 -e DO_NOT_TRACK=1 \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -v "$PWD:/w" -w /w \
+  node:26.13.0-slim@sha256:<digest at least 7 days old> sh -c '
   apt-get update && apt-get install -y --no-install-recommends git ca-certificates &&
   git clone https://github.com/dfinity/icskills.git /src &&
   git -C /src checkout 1c28dd2035fd9890ac0953661eb78ae7ee603e4d &&
   npx --yes --before=2026-11-02T21:00:00Z skills@1.7.5 add /src/skills \
     --skill icp-cli --skill canister-security --skill internet-identity \
     --skill stable-memory --skill certified-variables --skill cycles-management \
-    -a claude-code -a cursor --copy -y'
+    -a claude-code -a cursor --copy -y &&
+  chown -R "$HOST_UID:$HOST_GID" /w'
 ```
 
-The CLI clones by branch name, so it cannot take a commit id directly. The command therefore clones the repository, checks out the commit, and installs from that local copy. `npx --before` applies the 7-day rule to the CLI's own dependencies.
+- The CLI clones by branch name, so it cannot take a commit id directly. The command therefore clones the repository, checks out the commit, and installs from that local copy.
+- `npx --before` applies the 7-day rule to the CLI's own dependencies.
+- The container runs as root. The last line gives the files back to the user who ran it.
 
 ## Consequences
 
 - The pins lag behind the newest releases by design. The monthly upkeep task moves them.
-- A tool or library that is not listed here needs an ADR before it enters, hard rules 5 and 17.
-- Task M0-05 closes the `getrandom` check.
+- Task M0-05 closes the `getrandom` check and pins `ic-wasm` and the recipe.

@@ -19,8 +19,11 @@ At which address does every vault live: `https://<canister-id>.icp.net` or `http
 ## Facts, checked on 2026-11-09
 
 1. **The docs.** The custom domains guide says that by default every canister is reachable at `https://<canister-id>.icp.net`. The pinned skills use `icp.net` in their examples. No notice that `icp0.io` will be retired was found.
-2. **What answers today.** An old canister answered on `icp.net`, `icp0.io`, `ic0.app` and `icp1.io`. Two newer canisters answered on `icp.net` and `icp0.io`, and got status 400 on `ic0.app`. `ic0.app` was the default before `icp0.io`. So an old default domain has been closed to new canisters once, and the canisters that already used it kept it.
-3. **The public suffix list.** It lists `icp0.io`, so `<canister-id>.icp0.io` is an ordinary site, the usual case for a passkey. It lists `*.icp.net`, so every `<canister-id>.icp.net` is itself a public suffix. The web rules allow a passkey whose relying party id equals the host even then, but this case is rare and nobody has tested it for this project. Spike SP1 already names the risk.
+2. **What answers today.** Checked at 2026-11-09T21:40Z with a plain request for `/`:
+   - The old canister `qoctq-giaaa-aaaaa-aaaea-cai`, the NNS app, answered 200 on `icp.net`, `icp0.io` and `ic0.app`, and earlier the same day on `icp1.io`.
+   - The newer canisters `4aj73-iyaaa-aaaam-aha2q-cai` and `uc7il-jaaaa-aaaam-ai2gq-cai`, both developer docs sites, answered 200 on `icp.net` and `icp0.io`, and 400 on `ic0.app`.
+   - `ic0.app` was the default before `icp0.io`. So an old default domain has been closed to new canisters once, and the canisters that already used it kept it.
+3. **The public suffix list.** It lists `icp0.io`, so `<canister-id>.icp0.io` is an ordinary site, the usual case for a passkey. It lists `*.icp.net`, so every `<canister-id>.icp.net` is itself a public suffix. The web rules allow a passkey whose relying party id equals the host even then, but this case is rare and nobody has tested it for this project. Browsers check the relying party id, and so do passkey providers such as password managers. Spike SP1 already names the risk, and its table has a column for the authenticator.
 4. **Gate 1 is not affected.** Internet Identity treats `icp.net`, `icp0.io` and `ic0.app` as one origin, so the sign-in principal is the same at either address. Source: the pinned internet-identity skill.
 5. **API calls.** On `icp0.io` the SDK sends API calls through the page's own origin. On `icp.net` and custom domains it sends them to `https://icp-api.io`, which the page policy of spec 7.6 already allows. Source: the pinned icp-cli skill.
 
@@ -50,12 +53,16 @@ A custom domain is not offered. It would add a registrar, a DNS provider and a c
 To be filled in by the owner. Write the chosen domain, your name and the date. Or tell the agent, who records your answer here with your words.
 
 - Chosen domain:
+- Condition: spike SP1 passes at this address on every device you use. If it fails here and passes at the other address, a new ADR changes this decision before task M4-07 sets up the staging vault.
 - Signed:
 
 ## Consequences, once signed
 
 - `deploy.sh` passes the chosen suffix as the install argument, and `config.json` accepts only that host on mainnet.
 - The kit sheet prints `https://<canister-id>.<chosen domain>`.
-- The SP1 row in `docs/implementation-plan.md` now asks for every passkey test at both addresses. This ADR made that change.
-- Spec D8 and section 7.2 of `docs/implementation-plan.md` record the decision.
+- Spec D8 and section 7.2 of `docs/implementation-plan.md` record the decision. Task M0-02 gets its tick.
 - If the choice is `icp0.io`, task M0-05 checks whether the page policy can drop `https://icp-api.io` from `connect-src`.
+
+## Changes this pull request makes to the plan
+
+The SP1 row in `docs/implementation-plan.md` now runs every passkey test at both addresses, records a result for each, and names this decision as one it feeds. The change holds whichever domain is chosen, because the condition above needs the result at the chosen address and the fallback needs the other. The pull request merges only after the signature, as `docs/adr/README.md` requires.

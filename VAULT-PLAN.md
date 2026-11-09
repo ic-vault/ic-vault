@@ -13,6 +13,8 @@ Revision 8, same day: the choices before the first push are made. See decisions 
 ## 0. How to use this document
 
 - **Audience.** You, and the AI agents that will build it. Agents treat sections 6, 7, 8, 9.6, 11.5, 11.6 and 12 as the specification. Exact types, encodings and the order of tasks are in `IMPLEMENTATION-PLAN.md`.
+
+  > Since task M0-02, read `docs/implementation-plan.md` wherever this document names `IMPLEMENTATION-PLAN.md`. The root copy is frozen.
 - **DECIDE** marks a choice that is yours. Each has a default so work can start without you.
 - **VERIFY** marks a fact an agent must confirm against current documentation before relying on it.
 - At bootstrap, copy section 2 into `docs/threat-model.md`, section 6 into `docs/crypto-spec.md` and sections 11.4 to 11.6 into `docs/operations.md`. From then on the repository copies are the source of truth and change only through an ADR.

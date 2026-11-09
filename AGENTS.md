@@ -19,9 +19,10 @@ Read these before changing anything:
 | Decisions made since | `docs/adr/` |
 | The rest of the design and its reasons | `VAULT-PLAN.md` |
 
-- The files in `docs/` win over `VAULT-PLAN.md`. They change only through an ADR, except the tick on a task row.
+- The four files of `docs/` named above win over `VAULT-PLAN.md`. They change only through an ADR, except the tick on a task row. Other files under `docs/`, such as runbooks, review packages and upkeep reports, are ordinary task output.
+- `VAULT-PLAN.md` also changes only through an ADR. A change to its section 7, or to `docs/crypto-spec.md`, needs the owner's approval before any code is written.
 - `IMPLEMENTATION-PLAN.md` in the root is frozen. Do not edit or tick it.
-- Where a pinned skill disagrees with this file or with `docs/`, this file and `docs/` win. Say so in your pull request.
+- A pinned skill knows current API names and tool usage better than your memory, so use it for those. Where a skill disagrees with this file, `docs/` or `VAULT-PLAN.md` on a rule or a design choice, the project files win. Say so in your pull request. ADR 0001 lists the known cases.
 
 ## Commands
 
@@ -38,7 +39,7 @@ Work inside WSL on Windows. The README has the setup.
 | `pnpm run build:release` | Reproducible release build. Prints the Wasm hash | M4-02 |
 
 - Until `pnpm run check` exists there is no gate. Say so in your pull request.
-- Call project scripts with `pnpm run <name>`. `pnpm doctor` without `run` starts pnpm's own check, not `scripts/doctor.sh`.
+- Call project scripts with `pnpm run <name>`. A bare `pnpm doctor` runs pnpm's own check, not `scripts/doctor.sh`. pnpm releases before 12 also run their own `pnpm setup`, which edits the shell profile.
 
 ## Hard rules
 
@@ -55,19 +56,28 @@ Work inside WSL on Windows. The README has the setup.
 11. No irreversible step in one action. A destructive feature first needs a row in the owner-mistake table of `docs/threat-model.md` and its safeguard.
 12. `scripts/` never contains a canister deletion or reinstall mode.
 13. Nothing about a deployed vault enters this repository: no canister ids, no `.icp/` directory, no logs.
-14. No real secrets anywhere: not in tests, fixtures, examples or screenshots. Use generated values.
-15. Every new version of anything is at least 7 days old: packages, crates, tools, container images, skill commits. pnpm enforces it for npm packages. Apply it by hand to the rest and record the release date. `docs/adr/0001-toolchain.md` has the details.
-16. Text files use LF line endings. A CRLF changes the release hash. `.gitattributes` enforces it.
-17. Where a skill says to install a tool globally, use the pinned copy, such as `pnpm exec icp`. A tool that is not pinned needs an ADR.
+14. No log line containing arguments anywhere, including the web app and the worker.
+15. The browser stores nothing except the Internet Identity delegation that the auth client keeps in IndexedDB, spec 8.2. No other IndexedDB entry, no localStorage, no cache.
+16. No real secrets anywhere: not in tests, fixtures, examples or screenshots. Use generated values.
+17. Every new version of anything is at least 7 days old: packages, crates, tools, container images, skill commits. pnpm enforces it for npm packages. Apply it by hand to the rest.
+18. Text files use LF line endings. A CRLF changes the release hash. `.gitattributes` enforces it.
+19. Where a skill says to install a tool globally, use the pinned copy, such as `pnpm exec icp`.
+
+## Dependencies
+
+- **Runtime.** What ships in the canister or the web app comes only from the allowlist of spec 8.4. Anything else needs an ADR, rule 5.
+- **Development.** Build tools, test tools and their crates or packages enter with the task that needs them, and only what that task needs. Exact version, at least 7 days old. The pull request lists each with its version and release date. The task prompt in section 8 of the plan says "Do not add a dependency". It means nothing beyond this rule.
+- **Toolchain and skills.** A new version of Node, pnpm, Rust or icp-cli, or a new skills commit, needs a new ADR that supersedes the matching part of ADR 0001.
 
 ## Tasks
 
 - Take one task from section 4 of `docs/implementation-plan.md`. Section 8 there has the prompts for a task, a review and a spike.
 - One pull request per task. Do not touch files of another lane. Ask for a task in that lane instead.
 - Lanes A and B write the tests of the proof column first and watch them fail.
-- In the same pull request, mark your row as done: add ✓ after its ID in `docs/implementation-plan.md`, as in `| M0-02 ✓ |`.
+- Mark your row as done in the same pull request: add ✓ after its ID in `docs/implementation-plan.md`, as in `| M0-01 ✓ |`. Tick only when every item of the proof column is met. If the task has a part in lane H, tick only after the owner's step is recorded.
 - If the plan or the spec is wrong or unclear, stop. Write an ADR with the question and your proposal, as `docs/adr/README.md` describes, and report. Do not work around the problem.
 - Work in lane H is never done by an agent. An ADR that needs the owner's signature stays Proposed until the owner signs it.
+- The monthly upkeep task follows the prompt of spec Appendix E. It ends in a report under `docs/upkeep/` and at most one pull request, and it needs no mainnet access.
 - Never run anything against mainnet.
 
 ## Skills
@@ -80,4 +90,12 @@ Do not edit them. `docs/adr/0001-toolchain.md` records the commit and how to upd
 
 Section 6 of `docs/implementation-plan.md` has the levels R0 to R3. A task takes the highest level of any file it touches.
 
-Changes in `apps/web/src/crypto`, `apps/web/src/platform` or `scripts/`, in `access.rs`, `unlock.rs`, `sessions.rs`, `slots.rs`, `claim.rs`, `http.rs` or `upgrade.rs`, in `vault.did`, or in section 3 of `docs/implementation-plan.md` need a fresh-context review session and human approval before merge.
+These need a fresh-context review session and the owner's approval before merge, level R2:
+
+- Changes in `apps/web/src/crypto`, `apps/web/src/platform` or `scripts/`.
+- Changes in `access.rs`, `unlock.rs`, `sessions.rs`, `slots.rs`, `claim.rs`, `http.rs` or `upgrade.rs`, or in `vault.did`.
+- Changes to section 3 of `docs/implementation-plan.md`.
+- Changes to the instructions agents follow: `AGENTS.md`, `CLAUDE.md`, `docs/adr/README.md`, `.claude/` and `.agents/`.
+- A new version of the toolchain, of the skills commit, or of a crypto or SDK package: `@noble/*`, `@icp-sdk/*`, `ed25519-dalek`, `sha2`, `candid` and the `ic-*` crates.
+
+The last two items are stricter than section 6.1 of the plan, which does not name them.
