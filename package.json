@@ -1,0 +1,13 @@
+{
+  "name": "ic-vault",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@12.17.0",
+  "engines": {
+    "node": ">=26.13.0 <27"
+  },
+  "devDependencies": {
+    "@icp-sdk/icp-cli": "1.8.0"
+  }
+}
