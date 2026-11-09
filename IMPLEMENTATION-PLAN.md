@@ -1,5 +1,7 @@
 # Personal Vault: Implementation Plan
 
+> Frozen at task M0-02 on 2026-11-09. The living copy, and the task tracker, is `docs/implementation-plan.md`. Do not edit or tick this file.
+
 Companion to `VAULT-PLAN.md`, revision 8. Written 2026-11-09. Nothing is built.
 
 `VAULT-PLAN.md` says what the vault is and why. This document says in which order to build it, in which files, with which tests, and who has to look at what before it merges. Section 7 lists what still needs review, ranked.

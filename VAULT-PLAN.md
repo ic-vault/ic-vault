@@ -13,6 +13,8 @@ Revision 8, same day: the choices before the first push are made. See decisions 
 ## 0. How to use this document
 
 - **Audience.** You, and the AI agents that will build it. Agents treat sections 6, 7, 8, 9.6, 11.5, 11.6 and 12 as the specification. Exact types, encodings and the order of tasks are in `IMPLEMENTATION-PLAN.md`.
+
+  > Since task M0-02, read `docs/implementation-plan.md` wherever this document names `IMPLEMENTATION-PLAN.md`. The root copy is frozen.
 - **DECIDE** marks a choice that is yours. Each has a default so work can start without you.
 - **VERIFY** marks a fact an agent must confirm against current documentation before relying on it.
 - At bootstrap, copy section 2 into `docs/threat-model.md`, section 6 into `docs/crypto-spec.md` and sections 11.4 to 11.6 into `docs/operations.md`. From then on the repository copies are the source of truth and change only through an ADR.
@@ -101,6 +103,8 @@ Nobody independent has reviewed this design, and there is no budget for an audit
 Stage 3 may never open. The vault is then a place for secrets you can replace.
 
 ## 2. Threat model
+
+> Since task M0-02 the source of truth for this section is `docs/threat-model.md`. The text here is the copy of revision 8 and is not updated.
 
 **Assets, in order of value**
 
@@ -251,6 +255,8 @@ Nobody attacks in this table. The owner does something understandable and loses 
 Three things live in the browser only and never reach the canister unwrapped: the vault key, the factor secrets, and all plaintext.
 
 ## 6. Cryptographic design
+
+> Since task M0-02 the source of truth for this section is `docs/crypto-spec.md`. The text here is the copy of revision 8 and is not updated.
 
 Rule zero: compose standard building blocks. Any change to this section needs an ADR and human approval.
 
@@ -974,6 +980,8 @@ Fund a new vault with 3 to 5 trillion cycles. That covers years of normal use an
 
 ### 11.4 Setup and upkeep risks
 
+> Since task M0-02 the source of truth for sections 11.4 to 11.6 is `docs/operations.md`. The text here is the copy of revision 8 and is not updated.
+
 Section 2 covers attackers and owner mistakes. This section covers what is left: bringing a vault to life, and keeping it alive for years. Nothing is deployed yet, so the check ran against this plan and the current documentation. Ratings use the scale of section 2. "Before" rates revision 2.
 
 **What the check against the current docs found**
@@ -1302,7 +1310,7 @@ The gate opens stage 2 of section 1 and nothing more. Once a year the upkeep che
 | D5 | Network key | Decided on 2026-11-09: deferred until after the first release. Then per device, cached |
 | D6 | Auto-lock time | 5 minutes idle |
 | D7 | Internet Identity delegation lifetime | 8 hours |
-| D8 | Canonical gateway domain | `icp.net`, the address the current docs give every canister. Confirm at M0. For an existing vault it changes only by enrolling every device again |
+| D8 | Canonical gateway domain | Decided on 2026-11-09: `icp.net`, ADR 0002, on condition that spike SP1 passes there on every device you use. For an existing vault it changes only by enrolling every device again |
 | D9 | Kit format | 24 words in BIP39 English encoding, plus QR code and an 8-character check code |
 | D10 | External audit | Decided on 2026-11-09: none, because there is no budget. The release gate of section 12 takes its place |
 | D11 | Whether to offer a hosted launcher at all | Decide after the first release |
