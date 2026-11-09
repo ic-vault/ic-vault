@@ -13,7 +13,7 @@ Nothing is built yet. The repository holds the design and the plan.
 - [docs/adr/](docs/adr/) holds the decision records.
 - [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) is the plan as first written. It is frozen.
 - [DESIGN-REVIEW-FINDINGS.md](DESIGN-REVIEW-FINDINGS.md) is a review of the design by its own author.
-- [DESIGN-REVIEW-BRIEF.md](DESIGN-REVIEW-BRIEF.md) is the brief for anyone who wants to review it.
+- [docs/review/](docs/review/) is the review package for anyone who wants to review the design: the brief, and a map from each security claim to its mechanism. [DESIGN-REVIEW-BRIEF.md](DESIGN-REVIEW-BRIEF.md) is the first version of the brief, frozen.
 - [AGENTS.md](AGENTS.md) holds the rules for the AI agents that build it.
 
 ## Not independently reviewed
@@ -30,7 +30,7 @@ Trust therefore grows in stages. Nothing has been released, so no stage is open 
 
 Until stage 3 opens, every release says "Not independently reviewed. Keep here only what you can replace".
 
-Reviews are welcome. Start with the brief.
+Reviews are welcome. Start with the brief in [docs/review/](docs/review/).
 
 ## Reporting a vulnerability
 
