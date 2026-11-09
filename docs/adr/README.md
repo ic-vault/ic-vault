@@ -15,7 +15,7 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-toolchain.md) | Toolchain and pinned skills | Accepted |
-| [0002](0002-gateway-domain.md) | Canonical gateway domain | Proposed |
+| [0002](0002-gateway-domain.md) | Canonical gateway domain | Accepted |
 
 ## Template
 

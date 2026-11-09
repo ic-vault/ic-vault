@@ -1310,7 +1310,7 @@ The gate opens stage 2 of section 1 and nothing more. Once a year the upkeep che
 | D5 | Network key | Decided on 2026-11-09: deferred until after the first release. Then per device, cached |
 | D6 | Auto-lock time | 5 minutes idle |
 | D7 | Internet Identity delegation lifetime | 8 hours |
-| D8 | Canonical gateway domain | `icp.net`, the address the current docs give every canister. Confirm at M0. For an existing vault it changes only by enrolling every device again |
+| D8 | Canonical gateway domain | Decided on 2026-11-09: `icp.net`, ADR 0002, on condition that spike SP1 passes there on every device you use. For an existing vault it changes only by enrolling every device again |
 | D9 | Kit format | 24 words in BIP39 English encoding, plus QR code and an 8-character check code |
 | D10 | External audit | Decided on 2026-11-09: none, because there is no budget. The release gate of section 12 takes its place |
 | D11 | Whether to offer a hosted launcher at all | Decide after the first release |

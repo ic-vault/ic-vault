@@ -533,7 +533,7 @@ Goal: an empty project in which a certified page loads from a canister, locally 
 | ID | Task | Lane | Depends | Files | Proof | Review | Size |
 |---|---|---|---|---|---|---|---|
 | M0-01 ✓ | Root files of spec section 10, except `icp.yaml`, `Cargo.toml` and `deny.toml`, toolchain pins, license, a README that says experimental and not independently reviewed, a `SECURITY.md` that points to GitHub's private vulnerability reporting, ignore rules with `.icp/`, pnpm workspace with the 7-day release age | C | none | Root files | A clean clone installs with the frozen lockfile and without scripts | R1 | S |
-| M0-02 | Documents: threat model, crypto spec, operations, this plan, `AGENTS.md`, `CLAUDE.md`, pinned skills, ADR 0001 on the toolchain, ADR 0002 on the gateway domain | C, H | M0-01 | `docs/`, `AGENTS.md` | The copies match the spec. You have signed ADR 0002, which is decision D8 | R1 | S |
+| M0-02 ✓ | Documents: threat model, crypto spec, operations, this plan, `AGENTS.md`, `CLAUDE.md`, pinned skills, ADR 0001 on the toolchain, ADR 0002 on the gateway domain | C, H | M0-01 | `docs/`, `AGENTS.md` | The copies match the spec. You have signed ADR 0002, which is decision D8 | R1 | S |
 | M0-03 | `setup.sh`, `dev.sh`, `check.sh`, wired to pnpm. The gate of 5.1 with its eight steps, still empty | C | M0-01 | `scripts/`, `package.json` | `pnpm check` runs all steps and passes | R2 | S |
 | M0-04 | CI: the gate on every pull request, merge blocked when red, no credentials | C | M0-03 | `.github/workflows/check.yml` | A pull request with a failing test cannot merge | R1 | S |
 | M0-05 | Hello canister, with the first `icp.yaml`, the Cargo workspace and the `cargo deny` policy: certified page with a worker, the final headers of spec 7.6 including the Trusted Types policy for the worker, `config.json`. Spike SP3 on a throwaway mainnet canister | A, D, H | M0-03 | `icp.yaml`, `Cargo.toml`, `deny.toml`, `http.rs`, `apps/web/` | Local: the page loads and a PocketIC test verifies the response. Mainnet: the pass conditions of SP3 | R2 | M |
@@ -889,7 +889,7 @@ Defaults of the spec that I set or changed without your answer:
 | Decision | Now | Before, or the alternative |
 |---|---|---|
 | D3 protection profile | Passkey plus PIN, the only profile in the first release | Passkey alone |
-| D8 gateway domain | `icp.net` | `icp0.io` |
+| D8 gateway domain | Decided by you on 2026-11-09: `icp.net`, ADR 0002, on condition that SP1 passes there | `icp0.io` |
 | D9 kit format | 24 words | 52 characters |
 | D12 waiting period | 48 hours for the kit alone | None |
 | D13 trash | 30 days | Immediate deletion |

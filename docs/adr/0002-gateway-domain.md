@@ -1,9 +1,9 @@
 # ADR 0002: Canonical gateway domain
 
-Status: Proposed. Waiting for the owner's signature.
+Status: Accepted. Signed by the owner on 2026-11-09
 Date: 2026-11-09
 Task: M0-02, lane H. Decision D8 of `VAULT-PLAN.md`
-Decided by: the owner, once signed below
+Decided by: the owner
 
 ## Question
 
@@ -50,11 +50,9 @@ A custom domain is not offered. It would add a registrar, a DNS provider and a c
 
 ## Decision
 
-To be filled in by the owner. Write the chosen domain, your name and the date. Or tell the agent, who records your answer here with your words.
-
-- Chosen domain:
-- Condition: spike SP1 passes at this address on every device you use. If it fails here and passes at the other address, a new ADR changes this decision before task M4-07 sets up the staging vault.
-- Signed:
+- Chosen domain: `icp.net`. Every vault lives at `https://<canister-id>.icp.net`.
+- Condition: spike SP1 passes at this address on every device the owner uses. If it fails here and passes at `icp0.io`, a new ADR changes this decision before task M4-07 sets up the staging vault.
+- Signed: Manuel Rüedi, the owner, on 2026-11-09, in the chat with the agent of task M0-02. The answer, in the owner's words: "icp.net, as recommended". The agent recorded it.
 
 ## Consequences, once signed
 
