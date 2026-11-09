@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Supply chain rules of VAULT-PLAN.md section 8.4.
+
+# A version must have been published for 7 days (10080 minutes) before it can
+# enter the lockfile. An exception for a security fix goes through
+# minimumReleaseAgeExclude and an ADR.
+minimumReleaseAge: 10080
+
+# Fail when a package is published with weaker trust evidence than before.
+trustPolicy: no-downgrade
+
+# Exact versions only.
+saveExact: true
+
+# No dependency runs install scripts. icp-cli works without its postinstall step.
+allowBuilds:
+  '@icp-sdk/icp-cli': false

@@ -1,0 +1,11 @@
+# Line endings are LF everywhere, on every platform. The web app is embedded
+# in the canister Wasm, so a CRLF checkout on Windows would change the release
+# hash. Reproducible builds need the same bytes on every machine.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.wasm binary
+*.gz binary
+*.woff2 binary

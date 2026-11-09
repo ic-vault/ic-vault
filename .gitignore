@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+target/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# icp-cli state, including canister ids. Deployment state lives in your
+# private deployment directory, never here. VAULT-PLAN.md section 9.6.
+.icp/
+
+# Test output
+playwright-report/
+test-results/
+
+# Vault backup files. They are ciphertext, but they do not belong in a repository.
+*.icvb
+
+# Local files
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.claude/settings.local.json
