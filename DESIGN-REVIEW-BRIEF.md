@@ -1,5 +1,7 @@
 # Design review brief: a personal vault on the Internet Computer
 
+> Frozen at task DR-01 on 2026-11-09. The brief brought up to date for revision 8 is `docs/review/README.md`, the entry page of the review package. Read that one.
+
 For the reviewer. Written 2026-11-09. You received two documents with this brief: `VAULT-PLAN.md`, the design, and `IMPLEMENTATION-PLAN.md`, the exact interface and the open questions.
 
 Note for the owner, same day: this brief was written for revision 4 and was never sent. The author reviewed the design instead, see `DESIGN-REVIEW-FINDINGS.md`. Revision 5 has since deferred the network key and changed the unlock protocol. Revision 6 then took the cut line and left files and restore out of the first release. Since revision 7 there is no paid audit, and this brief is the core of the public call for review, task AG-01 of the implementation plan. Before it goes to anyone, section 1 and questions 1, 2, 4 and 7 of section 5 need updating.

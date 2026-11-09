@@ -545,7 +545,7 @@ Goal: the design is read against the questions of `DESIGN-REVIEW-BRIEF.md` befor
 
 | ID | Task | Lane | Depends | Files | Proof | Review | Size |
 |---|---|---|---|---|---|---|---|
-| DR-01 | Review package: the brief, both documents, and a map from each claim of spec section 1 to the mechanism that upholds it | C | M0-02 | `docs/review/` | A stranger can read the folder in the order of the brief. Every question of the brief points to a section that exists | R1 | S |
+| DR-01 ✓ | Review package: the brief, both documents, and a map from each claim of spec section 1 to the mechanism that upholds it | C | M0-02 | `docs/review/` | A stranger can read the folder in the order of the brief. Every question of the brief points to a section that exists | R1 | S |
 | DR-02 | Dropped on 2026-11-09. No outside reviewer is booked. The brief stays, in case you want one later | H | None | None | Nothing to prove | None | None |
 | DR-03 | The review. Done on 2026-11-09 by Claude, against the eleven questions of the brief | Claude | None | `DESIGN-REVIEW-FINDINGS.md` | Eighteen findings, and a verdict for each question | None | Done |
 | DR-04 | Triage. Done on 2026-11-09: you chose every proposed correction and deferred the network key. The spec went to revision 5 with it, and section 3 follows | C, H | DR-03 | The spec, this plan, `DESIGN-REVIEW-FINDINGS.md` | Corrections C37 to C47 in 3.10. The consistency checks pass | R2 | Done |
