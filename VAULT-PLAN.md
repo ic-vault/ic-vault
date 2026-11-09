@@ -102,6 +102,8 @@ Stage 3 may never open. The vault is then a place for secrets you can replace.
 
 ## 2. Threat model
 
+> Since task M0-02 the source of truth for this section is `docs/threat-model.md`. The text here is the copy of revision 8 and is not updated.
+
 **Assets, in order of value**
 
 1. Item contents: passwords, notes, and later files.
@@ -251,6 +253,8 @@ Nobody attacks in this table. The owner does something understandable and loses 
 Three things live in the browser only and never reach the canister unwrapped: the vault key, the factor secrets, and all plaintext.
 
 ## 6. Cryptographic design
+
+> Since task M0-02 the source of truth for this section is `docs/crypto-spec.md`. The text here is the copy of revision 8 and is not updated.
 
 Rule zero: compose standard building blocks. Any change to this section needs an ADR and human approval.
 
@@ -973,6 +977,8 @@ Published prices are for a 13-node subnet and scale with node count. The confide
 Fund a new vault with 3 to 5 trillion cycles. That covers years of normal use and the 180-day freezing reserve. The safety check warns when fewer than 365 days remain before freezing. `icp canister create` attaches 2 trillion cycles unless told otherwise, so `deploy.sh` names the amount. A snapshot is billed like the storage it copies.
 
 ### 11.4 Setup and upkeep risks
+
+> Since task M0-02 the source of truth for sections 11.4 to 11.6 is `docs/operations.md`. The text here is the copy of revision 8 and is not updated.
 
 Section 2 covers attackers and owner mistakes. This section covers what is left: bringing a vault to life, and keeping it alive for years. Nothing is deployed yet, so the check ran against this plan and the current documentation. Ratings use the scale of section 2. "Before" rates revision 2.
 

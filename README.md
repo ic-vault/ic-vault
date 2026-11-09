@@ -9,9 +9,12 @@ An open-source personal vault on the Internet Computer. Every user runs one cani
 Nothing is built yet. The repository holds the design and the plan.
 
 - [VAULT-PLAN.md](VAULT-PLAN.md) is the design, with its security claim and its risks.
-- [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) lists the tasks in order, with their tests.
+- [docs/](docs/) holds the parts the work follows: the [threat model](docs/threat-model.md), the [crypto spec](docs/crypto-spec.md), [operations](docs/operations.md), and the [implementation plan](docs/implementation-plan.md), which lists the tasks in order and tracks them. Since task M0-02 these copies win over VAULT-PLAN.md.
+- [docs/adr/](docs/adr/) holds the decision records.
+- [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) is the plan as first written. It is frozen.
 - [DESIGN-REVIEW-FINDINGS.md](DESIGN-REVIEW-FINDINGS.md) is a review of the design by its own author.
 - [DESIGN-REVIEW-BRIEF.md](DESIGN-REVIEW-BRIEF.md) is the brief for anyone who wants to review it.
+- [AGENTS.md](AGENTS.md) holds the rules for the AI agents that build it.
 
 ## Not independently reviewed
 
@@ -69,6 +72,9 @@ A new package version enters the lockfile only after it has been published for s
 | pnpm | 12.17.0 | `packageManager` in `package.json`, and the lockfile |
 | Rust | 1.99.1 | `rust-toolchain.toml` |
 | icp-cli | 1.8.0 | `devDependencies` in `package.json`, and the lockfile |
+| Official ICP skills | `dfinity/icskills` at commit `1c28dd2` | `.claude/skills/` and `.agents/skills/` |
+
+[ADR 0001](docs/adr/0001-toolchain.md) records the release dates, the checks and how to update.
 
 ## Layout
 
