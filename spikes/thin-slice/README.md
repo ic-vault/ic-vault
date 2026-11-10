@@ -1,6 +1,6 @@
 # Spike SP9: one thin path, end to end
 
-Throwaway code. It answers one question before task M1-01 freezes the interface: does section 3 of `docs/implementation-plan.md` compile, and does one path run? The answer and the gaps it found are in `docs/adr/0011-thin-slice-spike.md`. The four gaps are decided in `docs/adr/0012-four-gaps-before-freeze.md`, and the code here follows that record: the label of 92 bytes, `tries_left` by the closest of the three limits, a sixth session that ends the one running out first, and the claim code checked in the message hook.
+Throwaway code. It answers one question before task M1-01 freezes the interface: does section 3 of `docs/implementation-plan.md` compile, and does one path run? The answer and the gaps it found are in `docs/adr/0011-thin-slice-spike.md`. The four gaps are decided in `docs/adr/0012-four-gaps-before-freeze.md`, and the code here follows that record: the label of 92 bytes, `tries_left` by the closest of the three limits, a sixth session that ends the one with the oldest activity, and the claim code checked in the message hook.
 
 Nothing here is the product. State lives on the heap, 17 of the 29 methods are stubs, and nobody reviewed it. Do not copy from it without reading the spec again.
 
@@ -21,5 +21,7 @@ cargo test
 ```
 
 The first test run downloads the PocketIC server 16.1.0 from GitHub into the temp directory. The product tasks should pin that binary by hash and set `POCKET_IC_BIN`.
+
+On PocketIC the message hook reads the time of the last round. After `advance_time` a test needs one `tick` before a call whose hook depends on the time.
 
 All keys and secrets in the test are generated from fixed tags. None is real.

@@ -557,89 +557,36 @@ fn thin_slice_end_to_end() {
     assert!(pic
         .update_call(can, session, "sync", encode_one(0u64).unwrap())
         .is_err());
-
-    // ----- ADR 0012 -----
-    let good_p = pin_key(&info, pin);
-    let wrong_p = pin_key(&info, "482914");
-    let second = std::time::Duration::from_secs(1);
-    let alive = |who: Principal| {
-        pic.update_call(can, who, "sync", encode_one(0u64).unwrap())
-            .is_ok()
-    };
-    let open_session = |who: Principal| {
-        pic.advance_time(second);
-        let info = device_info(&pic, can, owner, &dev.slot.id);
-        let pr = prove_with(&vid, can, owner, &info, &dev.f, &good_p, who);
-        unlock(&pic, can, owner, &info, who, &pr)
-            .unwrap()
-            .expect("unlock")
-    };
-    let wrong_try = || -> u8 {
-        pic.advance_time(second);
-        let info = device_info(&pic, can, owner, &dev.slot.id);
-        let who = principal_of(99);
-        let pr = prove_with(&vid, can, owner, &info, &dev.f, &wrong_p, who);
-        match unlock(&pic, can, owner, &info, who, &pr).expect("a wrong PIN reaches the method") {
-            Err(Error::BadProof { tries_left, .. }) => tries_left,
-            other => panic!("expected BadProof, got {:?}", other.map(|_| ()).err()),
-        }
-    };
-
-    // A sixth full session is not refused. It ends the one whose time runs out first.
-    let s: Vec<Principal> = (70..76).map(principal_of).collect();
-    for who in &s[..5] {
-        open_session(*who);
-    }
-    assert!(
-        s[..5].iter().all(|who| alive(*who)),
-        "five sessions are live"
-    );
-    // The first one renews, so the second is now the one that runs out first.
-    pic.advance_time(second);
-    pic.update_call(can, s[0], "renew", encode_args(()).unwrap())
-        .unwrap();
-    open_session(s[5]);
-    assert!(!alive(s[1]), "the session that would end first is gone");
-    for who in [s[0], s[2], s[3], s[4], s[5]] {
-        assert!(alive(who), "the other sessions keep working");
-    }
-
-    // `tries_left` follows whichever limit is closest. The vault has one wrong try so far.
-    let left: Vec<u8> = (0..4).map(|_| wrong_try()).collect();
-    assert_eq!(left, [4, 3, 2, 1], "five in a row is the closest limit");
-    open_session(principal_of(80)); // a good unlock ends the row, not the count of the vault
-    let left: Vec<u8> = (0..4).map(|_| wrong_try()).collect();
-    assert_eq!(left, [4, 3, 2, 1]);
-    open_session(principal_of(81));
-    // Nine wrong tries in the vault. The tenth is the last one before the 24 hours.
-    assert_eq!(wrong_try(), 1, "the limit of the vault is now the closest");
-    assert_eq!(wrong_try(), 0, "the eleventh wrong try locks the key");
-    let info = device_info(&pic, can, owner, &dev.slot.id);
-    let now = pic.get_time().as_nanos_since_unix_epoch();
-    let until = info.locked_until.expect("locked");
-    let day = 24 * 3600 * 1_000_000_000u64;
-    assert!(until > now + day - 60_000_000_000 && until <= now + day);
-    let pr = prove_with(&vid, can, owner, &info, &dev.f, &good_p, principal_of(82));
-    assert!(
-        unlock(&pic, can, owner, &info, principal_of(82), &pr).is_err(),
-        "a locked key is refused in the hook, even with the right PIN"
-    );
 }
 
-/// ADR 0012: the canister refuses a slot whose label is not 92 bytes.
-#[test]
-fn a_label_of_another_length_is_refused() {
-    let pic = PocketIc::new();
-    let claim_code = bytes::<32>(1);
-    let can = install(
-        &pic,
+// ---------- ADR 0012 ----------
+
+const PIN: &str = "271828";
+const WRONG_PIN: &str = "482914";
+const SECOND: std::time::Duration = std::time::Duration::from_secs(1);
+
+struct Vault {
+    can: Principal,
+    vid: Vec<u8>,
+    owner: Principal,
+    vk: [u8; 32],
+}
+
+fn installed(pic: &PocketIc, claim_hash: &[u8]) -> Principal {
+    install(
+        pic,
         InstallArgs::Init {
-            claim_hash: bb(&sha256(&claim_code)),
+            claim_hash: bb(claim_hash),
             host_suffix: "icp.net".into(),
             environment: "production".into(),
             local_root_key: None,
         },
-    );
+    )
+}
+
+fn claimed(pic: &PocketIc) -> Vault {
+    let claim_code = bytes::<32>(1);
+    let can = installed(pic, &sha256(&claim_code));
     let owner = principal_of(2);
     let r: VResult = decode_one(
         &pic.update_call(can, owner, "claim", encode_one(bb(&claim_code)).unwrap())
@@ -647,24 +594,297 @@ fn a_label_of_another_length_is_refused() {
     )
     .unwrap();
     assert!(matches!(r, VResult::Ok));
-    let vid = can.as_slice().to_vec();
-    let vk = bytes::<32>(30);
-    let mut dev = build_device_slot(&vid, &vk, "271828");
-    dev.slot.label = bb(&[0u8; 44]);
-    let (kit_slot, kit_principal, export_header) = build_kit_slot(&vid, &vk, &bytes::<32>(31));
-    let vault_auth = SigningKey::from_bytes(&hkdf32(&vk, &vid, b"ic-vault/v1/vault-auth"));
+    Vault {
+        can,
+        vid: can.as_slice().to_vec(),
+        owner,
+        vk: bytes::<32>(30),
+    }
+}
+
+fn setup_finish(
+    pic: &PocketIc,
+    v: &Vault,
+    device_slot: Slot,
+    kit_label: Option<Vec<u8>>,
+) -> VResult {
+    let (mut kit_slot, kit_principal, export_header) =
+        build_kit_slot(&v.vid, &v.vk, &bytes::<32>(31));
+    if let Some(l) = kit_label {
+        kit_slot.label = bb(&l);
+    }
+    let vault_auth = SigningKey::from_bytes(&hkdf32(&v.vk, &v.vid, b"ic-vault/v1/vault-auth"));
     let setup = SetupArgs {
-        device_slot: dev.slot,
+        device_slot,
         kit_slot,
         kit_principal,
         export_header: bb(&export_header),
         vault_auth_pub: bb(vault_auth.verifying_key().as_bytes()),
         session: principal_of(40),
     };
-    let r: VResult = decode_one(
-        &pic.update_call(can, owner, "setup_finish", encode_one(setup).unwrap())
+    decode_one(
+        &pic.update_call(v.can, v.owner, "setup_finish", encode_one(setup).unwrap())
             .unwrap(),
     )
-    .unwrap();
-    assert!(matches!(r, VResult::Err(Error::Invalid(_))));
+    .unwrap()
+}
+
+/// A vault after setup, with the device and the two PIN keys the tests need.
+struct Ready {
+    v: Vault,
+    dev: Device,
+    good_p: [u8; 32],
+    wrong_p: [u8; 32],
+}
+
+fn ready(pic: &PocketIc) -> Ready {
+    let v = claimed(pic);
+    let dev = build_device_slot(&v.vid, &v.vk, PIN);
+    assert!(matches!(
+        setup_finish(pic, &v, dev.slot.clone(), None),
+        VResult::Ok
+    ));
+    let info = device_info(pic, v.can, v.owner, &dev.slot.id);
+    let good_p = pin_key(&info, PIN);
+    let wrong_p = pin_key(&info, WRONG_PIN);
+    Ready {
+        v,
+        dev,
+        good_p,
+        wrong_p,
+    }
+}
+
+impl Ready {
+    fn info(&self, pic: &PocketIc) -> SlotInfo {
+        device_info(pic, self.v.can, self.v.owner, &self.dev.slot.id)
+    }
+
+    fn try_unlock(
+        &self,
+        pic: &PocketIc,
+        p: &[u8; 32],
+        who: Principal,
+    ) -> Result<Result<UnlockOk, Error>, pocket_ic::RejectResponse> {
+        pic.advance_time(SECOND);
+        let info = self.info(pic);
+        let pr = prove_with(
+            &self.v.vid,
+            self.v.can,
+            self.v.owner,
+            &info,
+            &self.dev.f,
+            p,
+            who,
+        );
+        unlock(pic, self.v.can, self.v.owner, &info, who, &pr)
+    }
+
+    fn open_session(&self, pic: &PocketIc, who: Principal) {
+        self.try_unlock(pic, &self.good_p, who)
+            .unwrap()
+            .expect("unlock");
+    }
+
+    /// One wrong PIN. Returns `tries_left`.
+    fn wrong_try(&self, pic: &PocketIc) -> u8 {
+        match self
+            .try_unlock(pic, &self.wrong_p, principal_of(99))
+            .expect("a wrong PIN reaches the method")
+        {
+            Err(Error::BadProof { tries_left, .. }) => tries_left,
+            other => panic!("expected BadProof, got {:?}", other.map(|_| ()).err()),
+        }
+    }
+
+    fn alive(&self, pic: &PocketIc, who: Principal) -> bool {
+        pic.update_call(self.v.can, who, "sync", encode_one(0u64).unwrap())
+            .is_ok()
+    }
+
+    fn renew(&self, pic: &PocketIc, who: Principal) {
+        pic.update_call(self.v.can, who, "renew", encode_args(()).unwrap())
+            .expect("renew");
+    }
+}
+
+/// The claim code is 32 bytes. A code of another length is refused even when its hash is the stored one.
+#[test]
+fn a_claim_code_of_another_length_is_refused() {
+    let pic = PocketIc::new();
+    let short = bytes::<31>(1);
+    let can = installed(&pic, &sha256(&short));
+    assert!(
+        pic.update_call(
+            can,
+            principal_of(2),
+            "claim",
+            encode_one(bb(&short)).unwrap()
+        )
+        .is_err(),
+        "31 bytes with the right hash never reach the method"
+    );
+}
+
+/// The canister refuses a slot whose label is not 92 bytes, on the device slot and on the kit slot.
+#[test]
+fn a_label_of_another_length_is_refused() {
+    let pic = PocketIc::new();
+    let v = claimed(&pic);
+    let dev = build_device_slot(&v.vid, &v.vk, PIN);
+    for len in [0usize, 44, 91, 93] {
+        let mut slot = dev.slot.clone();
+        slot.label = bb(&vec![0u8; len]);
+        assert!(
+            matches!(
+                setup_finish(&pic, &v, slot, None),
+                VResult::Err(Error::Invalid(_))
+            ),
+            "a device label of {len} bytes"
+        );
+        assert!(
+            matches!(
+                setup_finish(&pic, &v, dev.slot.clone(), Some(vec![0u8; len])),
+                VResult::Err(Error::Invalid(_))
+            ),
+            "a kit label of {len} bytes"
+        );
+    }
+    // The same call with both labels at 92 bytes is accepted.
+    assert_eq!(dev.slot.label.len(), 92);
+    assert!(matches!(
+        setup_finish(&pic, &v, dev.slot.clone(), None),
+        VResult::Ok
+    ));
+}
+
+/// A sixth full session is not refused. It ends the one with the oldest activity.
+#[test]
+fn a_sixth_session_ends_the_one_with_the_oldest_activity() {
+    let pic = PocketIc::new();
+    let r = ready(&pic);
+    let first = principal_of(40); // opened by setup
+    let s: Vec<Principal> = (70..76).map(principal_of).collect();
+
+    // Keep the first session alive for 7 hours and 45 minutes. It is now close to its eight hours.
+    for _ in 0..31 {
+        pic.advance_time(std::time::Duration::from_secs(15 * 60));
+        r.renew(&pic, first);
+    }
+    for who in &s[..4] {
+        r.open_session(&pic, *who);
+    }
+    assert!(r.alive(&pic, first) && s[..4].iter().all(|who| r.alive(&pic, *who)));
+
+    // The first session is the oldest and the first to run out, but it was used last.
+    pic.advance_time(SECOND);
+    r.renew(&pic, first);
+    // s[1] is used after s[0], s[2] and s[3] too. So s[0] has the oldest activity.
+    for who in &s[1..4] {
+        pic.advance_time(SECOND);
+        r.renew(&pic, *who);
+    }
+    r.open_session(&pic, s[4]);
+    assert!(
+        !r.alive(&pic, s[0]),
+        "the session with the oldest activity is gone"
+    );
+    for who in [first, s[1], s[2], s[3], s[4]] {
+        assert!(r.alive(&pic, who), "the other sessions keep working");
+    }
+
+    // Once more. The first session renewed before s[1], s[2] and s[3] did, so it is next.
+    r.open_session(&pic, s[5]);
+    assert!(!r.alive(&pic, first));
+    for who in [s[1], s[2], s[3], s[4], s[5]] {
+        assert!(r.alive(&pic, who));
+    }
+}
+
+/// `tries_left` by the first limit: five in a row, and the one try after a lock has run out.
+#[test]
+fn tries_left_five_in_a_row() {
+    let pic = PocketIc::new();
+    let r = ready(&pic);
+    let left: Vec<u8> = (0..5).map(|_| r.wrong_try(&pic)).collect();
+    assert_eq!(left, [4, 3, 2, 1, 0]);
+    let minute = 60_000_000_000u64;
+    let now = pic.get_time().as_nanos_since_unix_epoch();
+    let until = r.info(&pic).locked_until.expect("locked for a minute");
+    assert!(until > now && until <= now + minute);
+    assert!(
+        r.try_unlock(&pic, &r.good_p, principal_of(80)).is_err(),
+        "a locked key is refused in the hook, even with the right PIN"
+    );
+
+    // After the lock there is one try. A wrong one is counted, answered with zero, and locks again.
+    // The tick lets the test network take over the new time before the hook reads it.
+    pic.advance_time(std::time::Duration::from_secs(61));
+    pic.tick();
+    let nonce = r.info(&pic).nonce;
+    assert_eq!(r.wrong_try(&pic), 0);
+    let info = r.info(&pic);
+    assert_eq!(info.nonce, nonce + 1, "the try was counted");
+    let now = pic.get_time().as_nanos_since_unix_epoch();
+    let until = info.locked_until.expect("locked again");
+    assert!(
+        until > now + minute && until <= now + 2 * minute,
+        "for twice as long"
+    );
+}
+
+/// `tries_left` by the second limit: ten wrong tries of the vault within thirty days.
+#[test]
+fn tries_left_at_the_limit_of_the_vault() {
+    let pic = PocketIc::new();
+    let r = ready(&pic);
+    let left: Vec<u8> = (0..4).map(|_| r.wrong_try(&pic)).collect();
+    assert_eq!(left, [4, 3, 2, 1], "five in a row is the closest limit");
+    r.open_session(&pic, principal_of(80)); // a good unlock ends the row, not the count of the vault
+    let left: Vec<u8> = (0..4).map(|_| r.wrong_try(&pic)).collect();
+    assert_eq!(left, [4, 3, 2, 1]);
+    r.open_session(&pic, principal_of(81));
+    // Eight wrong tries in the vault so far.
+    assert_eq!(
+        r.wrong_try(&pic),
+        2,
+        "the ninth: the limit of the vault is now the closest"
+    );
+    assert_eq!(
+        r.wrong_try(&pic),
+        1,
+        "the tenth is the last one before the 24 hours"
+    );
+    assert_eq!(r.wrong_try(&pic), 0, "the eleventh locks the key");
+    let day = 24 * 3600 * 1_000_000_000u64;
+    let now = pic.get_time().as_nanos_since_unix_epoch();
+    let until = r.info(&pic).locked_until.expect("locked");
+    assert!(until > now + day - 60_000_000_000 && until <= now + day);
+    assert!(r.try_unlock(&pic, &r.good_p, principal_of(82)).is_err());
+}
+
+/// `tries_left` by the third limit: 30 wrong tries that nobody cleared.
+#[test]
+fn tries_left_at_thirty_uncleared() {
+    let pic = PocketIc::new();
+    let r = ready(&pic);
+    let month = std::time::Duration::from_secs(31 * 24 * 3600);
+    let mut left = Vec::new();
+    for n in 1..=30u8 {
+        // One typo a month, each followed by a good unlock. Only the third limit comes closer.
+        pic.advance_time(month);
+        left.push(r.wrong_try(&pic));
+        if n < 30 {
+            r.open_session(&pic, principal_of(100 + n));
+        }
+    }
+    assert!(left[..26].iter().all(|x| *x == 4), "{left:?}");
+    assert_eq!(left[26..], [3, 2, 1, 0]);
+    let info = r.info(&pic);
+    assert!(info.needs_clearing);
+    pic.advance_time(month);
+    assert!(
+        r.try_unlock(&pic, &r.good_p, principal_of(200)).is_err(),
+        "the key stays locked until a full session clears it"
+    );
 }

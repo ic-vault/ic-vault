@@ -314,6 +314,8 @@ struct StoredSlot {
 }
 
 struct Session {
+    /// The last activity: when it was opened, or its last `renew`. ADR 0012.
+    pub last_active: u64,
     pub idle_until: u64,
     pub ends: u64,
 }
@@ -636,15 +638,15 @@ fn check_slot(s: &Slot, want: SlotKind) -> Result<(), Error> {
 fn open_session(st: &mut State, who: Principal, now: u64) -> Result<u64, Error> {
     st.sessions
         .retain(|_, s| now < s.idle_until && now < s.ends);
-    // ADR 0012: a sixth full session is not refused. It ends the one whose time runs out first.
+    // ADR 0012: a sixth full session is not refused. It ends the one with the oldest activity.
     // On a tie the one that was opened first, then the principal that sorts first.
     while st.sessions.len() >= MAX_FULL_SESSIONS && !st.sessions.contains_key(&who) {
-        let first_to_end = st
+        let oldest = st
             .sessions
             .iter()
-            .min_by_key(|(p, s)| (s.idle_until.min(s.ends), s.ends, **p))
+            .min_by_key(|(p, s)| (s.last_active, s.ends, **p))
             .map(|(p, _)| *p);
-        match first_to_end {
+        match oldest {
             Some(p) => st.sessions.remove(&p),
             None => break,
         };
@@ -652,6 +654,7 @@ fn open_session(st: &mut State, who: Principal, now: u64) -> Result<u64, Error> 
     st.sessions.insert(
         who,
         Session {
+            last_active: now,
             idle_until: now + SESSION_IDLE,
             ends: now + SESSION_MAX,
         },
@@ -765,21 +768,22 @@ fn unlock(a: UnlockArgs) -> Result<UnlockOk, Error> {
                 let level = (row - 5).min(11);
                 slot.locked_until = Some(now + (MINUTE << level).min(DAY));
             }
-            // The second limit: the wrong tries of the whole vault within thirty days, this one included.
-            st.wrong_times.push(now);
-            if st.wrong_times.len() > 11 {
-                st.wrong_times.remove(0);
-            }
-            let in_vault = st
+            // The second limit: the wrong tries of the whole vault within thirty days. The ten
+            // stored times are counted before this try is written, and this try is added.
+            let in_vault = 1 + st
                 .wrong_times
                 .iter()
                 .filter(|t| now - **t < 30 * DAY)
                 .count() as u32;
+            st.wrong_times.push(now);
+            if st.wrong_times.len() > 10 {
+                st.wrong_times.remove(0);
+            }
             if in_vault > 10 {
                 slot.locked_until = Some(now + DAY);
             }
             // ADR 0012: the wrong tries this key still takes until it is locked, by whichever
-            // of the three limits is closest. Zero exactly when this try locked it.
+            // of the three limits is closest. Never below zero, and zero exactly when the key is locked.
             let left = 5u32
                 .saturating_sub(row)
                 .min(11u32.saturating_sub(in_vault))
@@ -836,6 +840,7 @@ fn renew() -> u64 {
             ic_cdk::trap("not allowed");
         }
         let sess = st.sessions.get_mut(&caller).unwrap();
+        sess.last_active = now;
         sess.idle_until = (now + SESSION_IDLE).min(sess.ends);
         sess.idle_until
     })

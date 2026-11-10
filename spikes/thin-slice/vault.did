@@ -21,7 +21,7 @@ type Error = variant {
   WrongState : text;              // for example "setup done"
   NotFound;
   Locked : opt nat64;             // locked until this time. Nothing means: until a full session clears it
-  BadProof : record { tries_left : nat8; settings_hash : blob };   // tries_left: wrong tries until the key is locked, spec 6.4 and ADR 0012. settings_hash: spec 6.3. Never covers a proof key or the blob, ADR 0004
+  BadProof : record { tries_left : nat8; settings_hash : blob };   // tries_left: wrong tries until the key is locked, never below zero, spec 6.4 and ADR 0012. settings_hash: spec 6.3. Never covers a proof key or the blob, ADR 0004
   StaleNonce : nat64;             // the current nonce of that slot, try again with it
   RecoveryPending : nat64;        // the kit principal may unlock at this time
   VersionConflict : nat64;        // the current version of the item
