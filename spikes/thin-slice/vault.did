@@ -1,0 +1,178 @@
+// Copied by the spike from section 3.2 of docs/implementation-plan.md, unchanged except for this header
+// and the two HTTP types below, which section 3.2 leaves to ic-http-certification.
+type HeaderField = record { text; text };
+type HttpRequest = record { method : text; url : text; headers : vec HeaderField; body : blob; certificate_version : opt nat16 };
+type HttpResponse = record { status_code : nat16; headers : vec HeaderField; body : blob; upgrade : opt bool };
+
+// vault.did, draft. Frozen by task M1-01. HttpRequest and HttpResponse are those of ic-http-certification.
+
+type InstallArgs = variant {
+  Init : record {
+    claim_hash : blob;            // SHA-256 of the claim code
+    host_suffix : text;           // "icp.net" on mainnet
+    environment : text;           // "production", "staging" or "local"
+    local_root_key : opt blob;    // only with the environment "local", ADR 0003
+  };
+  Upgrade : record {};            // empty in the first release
+};
+
+type Error = variant {
+  NotAllowed;                     // the caller fails the gate of this method
+  WrongState : text;              // for example "setup done"
+  NotFound;
+  Locked : opt nat64;             // locked until this time. Nothing means: until a full session clears it
+  BadProof : record { tries_left : nat8; settings_hash : blob };   // spec 6.3. Never covers a proof key or the blob, ADR 0004
+  StaleNonce : nat64;             // the current nonce of that slot, try again with it
+  RecoveryPending : nat64;        // the kit principal may unlock at this time
+  VersionConflict : nat64;        // the current version of the item
+  TooLarge;
+  QuotaExceeded;
+  LimitReached : text;
+  RateLimited : nat64;            // try again at this time
+  Invalid : text;                 // a fixed text, never built from arguments
+};
+type Result = variant { Ok; Err : Error };
+
+type SlotKind = variant { PasskeyPin; Kit };   // Passkey and Passphrase come after the first release, label bytes 1 and 3 stay reserved
+type Kdf = record { memory_kib : nat32; passes : nat32; lanes : nat32; salt : blob };
+type Slot = record {
+  id : blob;                      // 16 bytes
+  kind : SlotKind;
+  credential_id : opt blob;       // passkey kinds
+  prf_salt : opt blob;            // passkey kinds, 32 random bytes
+  kdf : opt Kdf;                  // the kind with a PIN
+  salt : blob;                    // 32 bytes
+  auth_f_pub : opt blob;          // passkey with PIN: proof key of the passkey alone
+  auth_pub : blob;                // proof key of the whole factor
+  wrap : nat8;                    // 1 is the inner wrap alone. Room for the network key of spec 6.5
+  wrapped : blob;                 // the slot blob of spec 6.3
+  label : blob;                   // encrypted with k_meta
+};
+type SlotInfo = record {
+  id : blob; kind : SlotKind; credential_id : opt blob; prf_salt : opt blob; kdf : opt Kdf; salt : blob;
+  nonce : nat64; created : nat64; last_used : opt nat64;
+  locked_until : opt nat64; needs_clearing : bool;
+};
+type Health = variant { Ok; Low; Urgent; Unknown };
+type SlotsPublic = record {
+  setup_done : bool;
+  slots : vec SlotInfo;
+  vk_epoch : nat32;
+  kit_number : nat32;
+  kit_created : nat64;
+  pending_recovery : opt nat64;
+  health : Health;
+};
+
+type UnlockArgs = record {
+  slot_id : blob;
+  nonce : nat64;                  // the nonce of that slot
+  session : principal;
+  proof_f : opt blob;             // passkey with PIN: made with the passkey alone, checked in the message hook
+  proof : blob;                   // made with the whole factor, counted when wrong
+};
+type AuditEvent = record { seq : nat64; time : nat64; kind : text; caller : principal; slot_id : opt blob };
+type UnlockOk = record {
+  wrapped : blob;
+  session_expires : nat64;
+  previous_unlock : opt nat64;
+  failed_since : nat32;           // failed tries on any key since the previous unlock
+  uncleared : vec record { blob; nat32 };   // slot id and its wrong tries that nobody cleared, for every key above zero. ADR 0010
+  alerts : vec AuditEvent;        // events newer than the last acknowledged one
+};
+type UnlockResult = variant { Ok : UnlockOk; Err : Error };
+
+type SetupArgs = record {
+  device_slot : Slot; kit_slot : Slot; kit_principal : principal;
+  export_header : blob; vault_auth_pub : blob; session : principal;
+};
+type KitReplace = record { kit_slot : Slot; kit_principal : principal; export_header : blob };
+
+type Handoff = record { id : blob; token_hash : blob; wrapped : blob };
+type EnrollArgs = record { token : blob; session : principal };
+type EnrollOk = record { handoff_id : blob; wrapped : blob; vk_epoch : nat32 };
+type EnrollResult = variant { Ok : EnrollOk; Err : Error };
+
+type ItemPut = record {
+  id : blob;
+  expected_version : nat64;       // 0 creates the item
+  wrapped_dek : blob;
+  header : blob;
+  body : blob;
+};
+type ItemPutResult = variant { Ok : record { version : nat64; seq : nat64 }; Err : Error };
+type ItemRecord = record {
+  id : blob; version : nat64; seq : nat64; updated : nat64;
+  deleted : opt nat64;            // set while the item is in the trash
+  purged : bool;                  // true for a tombstone, the two fields below are then empty
+  wrapped_dek : blob; header : blob;
+};
+type SyncPage = record {
+  items : vec ItemRecord;
+  next : opt nat64;               // pass it back to get the next page
+  latest_seq : nat64;
+  quota_used : nat64;
+  quota : nat64;
+};
+type Body = record { version : nat64; body : blob };
+
+type RekeyArgs = record {
+  expected_seq : nat64;           // fails when anything changed since
+  device_slot : Slot; kit_slot : Slot; kit_principal : principal; export_header : blob; vault_auth_pub : blob;
+  wrapped_deks : vec record { blob; nat64; blob };   // item id, version, new wrapped data key
+};
+
+type BackupManifest = record {
+  vault_id : blob; vk_epoch : nat32; kit_number : nat32; kit_created : nat64;
+  kit_slot : Slot; kit_principal : principal; export_header : blob; vault_auth_pub : blob;
+  latest_seq : nat64; item_count : nat32;
+};
+type Status = record {
+  version : text; environment : text; vault_id : blob; health : Health;
+  kit_number : nat32; kit_created : nat64;
+  recovery_pending : bool;        // true while a recovery with the kit alone is pending or ready. No time. ADR 0007
+};
+type TrustInfo = record {
+  balance : nat; liquid : nat; burn_per_day : opt nat;
+  quota_used : nat64; quota : nat64; item_count : nat32;
+  recovery_delay : nat64; sessions : nat8;
+};
+
+service : (InstallArgs) -> {
+  // open to anyone
+  http_request    : (HttpRequest) -> (HttpResponse) query;
+  status          : () -> (Status) query;
+
+  // owner principal: the Internet Identity principal or the kit principal
+  claim           : (blob) -> (Result);
+  setup_finish    : (SetupArgs) -> (Result);
+  slots_public    : () -> (SlotsPublic) query;
+  unlock          : (UnlockArgs) -> (UnlockResult);
+  enroll_begin    : (EnrollArgs) -> (EnrollResult);
+
+  // enrolment session
+  enroll_finish   : (Slot, blob) -> (Result);           // the slot, and a proof of the vault key
+
+  // full session
+  renew           : () -> (nat64);
+  lock            : () -> ();
+  sync            : (nat64) -> (SyncPage);
+  item_put        : (ItemPut) -> (ItemPutResult);
+  item_delete     : (blob, nat64) -> (Result);
+  item_restore    : (blob, nat64) -> (Result);
+  item_purge      : (blob) -> (Result);
+  item_body       : (blob) -> (opt Body) query;
+  slot_add        : (Slot, opt blob) -> (Result);
+  slot_remove     : (blob) -> (Result);
+  slot_clear_lock : (blob) -> (Result);
+  handoff_put     : (Handoff) -> (Result);
+  kit_replace     : (KitReplace) -> (Result);
+  recovery_cancel : () -> (Result);
+  owner_set       : (principal) -> (Result);
+  rekey           : (RekeyArgs) -> (Result);
+  backup_manifest : () -> (BackupManifest);
+  alerts_ack      : (nat64) -> (Result);
+  limits_set      : (nat64) -> (Result);                   // waiting period
+  audit           : (nat64, nat32) -> (vec AuditEvent) query;
+  trust           : () -> (TrustInfo) query;
+}

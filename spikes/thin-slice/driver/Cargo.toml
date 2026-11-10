@@ -1,0 +1,21 @@
+[package]
+name = "thin-slice-driver"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+candid = "=0.10.39"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_bytes = "=0.11.19"
+ed25519-dalek = "=3.0.0"
+sha2 = "=0.11.1"
+hkdf = "=0.13.0"
+aes-gcm = "=0.11.1"
+argon2 = "=0.6.0"
+
+[dev-dependencies]
+pocket-ic = "=16.1.0"
+thin-slice-canister = { path = "../canister" }
+candid_parser = "=0.4.1"
