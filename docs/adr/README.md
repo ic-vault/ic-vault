@@ -24,6 +24,10 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 | [0008](0008-exclude-list-at-rekey.md) | No exclude list when a re-key creates the new passkey | Accepted |
 | [0009](0009-sp1-prf-salt-rows.md) | Spike SP1 tests the PRF salt per unlock key | Accepted |
 | [0010](0010-clearing-failed-tries.md) | What clears the count of wrong tries, and when the app asks | Accepted |
+| [0011](0011-thin-slice-spike.md) | Spike SP9, one thin path before the freeze | Accepted |
+| [0012](0012-four-gaps-before-freeze.md) | The four gaps of section 3 that spike SP9 found | Accepted |
+
+The numbers 0011 and 0012 were first used by two proposals that the owner dropped on 2026-11-10, before any merge. One was about GitHub enforcing the review rules, the other about a separate environment for operating the vault. The words "Drop 0011 and 0012 for now" in the signatures of ADR 0003, 0004, 0007, 0008 and 0010 mean those two proposals, not the records above.
 
 ## Template
 

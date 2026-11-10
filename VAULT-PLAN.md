@@ -573,6 +573,7 @@ What the hook does for `unlock`:
 What the hook does elsewhere:
 
 - For `enroll_begin` it compares the token with the pending handoff. The token has 256 bits, so this leaks nothing.
+- For `claim` it compares the hash of the code with the claim hash. The code is 32 bytes from the random generator of the operating system, so this leaks nothing either, ADR 0012.
 - It refuses every ingress call to a query method. Called as an update, `status` or `http_request` would cost the vault cycles.
 - A call that the hook turns away comes back without an error value. The client reads `slots_public` again and decides from that.
 
