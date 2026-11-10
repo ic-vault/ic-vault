@@ -25,6 +25,7 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 | [0009](0009-sp1-prf-salt-rows.md) | Spike SP1 tests the PRF salt per unlock key | Accepted |
 | [0010](0010-clearing-failed-tries.md) | What clears the count of wrong tries, and when the app asks | Accepted |
 | [0011](0011-thin-slice-spike.md) | Spike SP9, one thin path before the freeze | Accepted |
+| [0012](0012-four-gaps-before-freeze.md) | The four gaps of section 3 that spike SP9 found | Accepted |
 
 ## Template
 

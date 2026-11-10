@@ -3,7 +3,7 @@
 Status: Accepted, by the merge of the pull request that carries it
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding P4. Spike SP9
-Decided by: the pull request that merges it. It changes section 2 of the plan and one dependency in section 4. The four open points below are the owner's and are not decided here
+Decided by: the pull request that merges it. It changes section 2 of the plan and one dependency in section 4. The four open points below are the owner's. ADR 0012 decides them
 
 ## Question
 
@@ -39,7 +39,7 @@ Three facts for ADR 0001, from the same build:
 
 ## Gaps the spike found in section 3
 
-None of them stopped the path. Each needs one sentence before the freeze. They are listed here and not edited into the plan, because each is a choice.
+None of them stopped the path. Each needs one sentence before the freeze. They are listed here and not decided here, because each is a choice. ADR 0012 decides them and carries the edits.
 
 | # | Gap | Proposal |
 |---|---|---|
@@ -64,7 +64,7 @@ Two observations that need no decision:
 ## Decision
 
 - Spike SP9 gets a row in section 2 and is done.
-- M1-01 depends on SP9 and on an answer to the four gaps above.
+- M1-01 depends on SP9. The four gaps above are answered by ADR 0012, in the same pull request.
 - `spikes/thin-slice/` stays in the repository until M1-05 has its own tests, then it is deleted.
 
 ## Development dependencies of the spike
@@ -90,4 +90,5 @@ The transitive crates in `Cargo.lock` were not checked one by one against the 7-
 ## Consequences
 
 - `docs/implementation-plan.md`: a row SP9 in section 2, and SP9 in the "Depends" column of M1-01.
+- The spike was changed once more to follow ADR 0012. The results above are from the first run and still hold, except that a wrong claim code and a sixth session now behave as ADR 0012 says.
 - `spikes/thin-slice/` with its own Cargo workspace and lock file. The root of the repository gets no `Cargo.toml` from this. That stays with M0-05.

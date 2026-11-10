@@ -8,7 +8,7 @@ type HttpResponse = record { status_code : nat16; headers : vec HeaderField; bod
 
 type InstallArgs = variant {
   Init : record {
-    claim_hash : blob;            // SHA-256 of the claim code
+    claim_hash : blob;            // SHA-256 of the claim code, which is 32 random bytes, ADR 0012
     host_suffix : text;           // "icp.net" on mainnet
     environment : text;           // "production", "staging" or "local"
     local_root_key : opt blob;    // only with the environment "local", ADR 0003
@@ -21,7 +21,7 @@ type Error = variant {
   WrongState : text;              // for example "setup done"
   NotFound;
   Locked : opt nat64;             // locked until this time. Nothing means: until a full session clears it
-  BadProof : record { tries_left : nat8; settings_hash : blob };   // spec 6.3. Never covers a proof key or the blob, ADR 0004
+  BadProof : record { tries_left : nat8; settings_hash : blob };   // tries_left: wrong tries until the key is locked, spec 6.4 and ADR 0012. settings_hash: spec 6.3. Never covers a proof key or the blob, ADR 0004
   StaleNonce : nat64;             // the current nonce of that slot, try again with it
   RecoveryPending : nat64;        // the kit principal may unlock at this time
   VersionConflict : nat64;        // the current version of the item
@@ -46,7 +46,7 @@ type Slot = record {
   auth_pub : blob;                // proof key of the whole factor
   wrap : nat8;                    // 1 is the inner wrap alone. Room for the network key of spec 6.5
   wrapped : blob;                 // the slot blob of spec 6.3
-  label : blob;                   // encrypted with k_meta
+  label : blob;                   // encrypted with k_meta. Always 92 bytes, ADR 0012
 };
 type SlotInfo = record {
   id : blob; kind : SlotKind; credential_id : opt blob; prf_salt : opt blob; kdf : opt Kdf; salt : blob;

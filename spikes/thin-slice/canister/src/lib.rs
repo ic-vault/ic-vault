@@ -296,6 +296,12 @@ const MINUTE: u64 = 60_000_000_000;
 const SESSION_IDLE: u64 = 30 * MINUTE;
 const SESSION_MAX: u64 = 8 * 60 * MINUTE;
 const QUOTA: u64 = 1 << 30;
+const DAY: u64 = 24 * 60 * MINUTE;
+/// ADR 0012: the label of an unlock key. Nonce 12, padded text 64, tag 16.
+const LABEL_CT_LEN: usize = 92;
+/// ADR 0012: the claim code is 32 random bytes.
+const CLAIM_CODE_LEN: usize = 32;
+const MAX_FULL_SESSIONS: usize = 5;
 
 struct StoredSlot {
     pub slot: Slot,
@@ -333,6 +339,8 @@ struct State {
     pub quota_used: u64,
     pub last_unlock: Option<u64>,
     pub failed_since: u32,
+    /// The times of the last ten counted wrong tries in the vault, section 3.3.
+    pub wrong_times: Vec<u64>,
 }
 
 thread_local! {
@@ -472,7 +480,11 @@ fn inspect_message() {
         match method.as_str() {
             // Queries called as updates would cost the vault cycles.
             "http_request" | "status" | "slots_public" | "item_body" | "audit" | "trust" => false,
-            "claim" => caller != Principal::anonymous() && st.owner.is_none(),
+            // ADR 0012: the code has 256 bits, so the hook may compare it.
+            "claim" => match candid::decode_one::<ByteBuf>(&msg_arg_data()) {
+                Ok(code) => claim_precheck(&st, &caller, &code).is_ok(),
+                Err(_) => false,
+            },
             "setup_finish" => st.owner == Some(caller) && !st.setup_done,
             "unlock" => match candid::decode_one::<UnlockArgs>(&msg_arg_data()) {
                 Ok(a) => unlock_precheck(&st, &caller, &a, now).is_ok(),
@@ -565,19 +577,25 @@ fn status() -> Status {
     })
 }
 
+/// The one decision function for `claim`, called by the hook and by the method. ADR 0012.
+fn claim_precheck(st: &State, caller: &Principal, code: &[u8]) -> Result<(), Error> {
+    if *caller == Principal::anonymous() || st.owner.is_some() || code.len() != CLAIM_CODE_LEN {
+        return Err(Error::NotAllowed);
+    }
+    match &st.claim_hash {
+        Some(h) if Sha256::digest(code).as_slice() == h.as_slice() => Ok(()),
+        _ => Err(Error::NotAllowed),
+    }
+}
+
 #[ic_cdk::update]
 fn claim(code: ByteBuf) -> VResult {
     let caller = msg_caller();
-    if caller == Principal::anonymous() {
-        return VResult::Err(Error::NotAllowed);
-    }
     STATE.with(|s| {
         let mut st = s.borrow_mut();
-        let Some(h) = st.claim_hash.clone() else {
-            return VResult::Err(Error::NotAllowed);
-        };
-        if st.owner.is_some() || Sha256::digest(&code).as_slice() != h.as_slice() {
-            return VResult::Err(Error::NotAllowed);
+        // The gate: the same function the hook ran. A call from another canister skipped the hook.
+        if let Err(e) = claim_precheck(&st, &caller, &code) {
+            return VResult::Err(e);
         }
         st.owner = Some(caller);
         st.claim_hash = None;
@@ -589,6 +607,7 @@ fn check_slot(s: &Slot, want: SlotKind) -> Result<(), Error> {
     let shape = s.kind == want
         && s.id.len() == 16
         && s.salt.len() == 32
+        && s.label.len() == LABEL_CT_LEN
         && valid_point(&s.auth_pub)
         && match want {
             SlotKind::PasskeyPin => {
@@ -617,8 +636,18 @@ fn check_slot(s: &Slot, want: SlotKind) -> Result<(), Error> {
 fn open_session(st: &mut State, who: Principal, now: u64) -> Result<u64, Error> {
     st.sessions
         .retain(|_, s| now < s.idle_until && now < s.ends);
-    if st.sessions.len() >= 5 {
-        return Err(Error::LimitReached("sessions".into()));
+    // ADR 0012: a sixth full session is not refused. It ends the one whose time runs out first.
+    // On a tie the one that was opened first, then the principal that sorts first.
+    while st.sessions.len() >= MAX_FULL_SESSIONS && !st.sessions.contains_key(&who) {
+        let first_to_end = st
+            .sessions
+            .iter()
+            .min_by_key(|(p, s)| (s.idle_until.min(s.ends), s.ends, **p))
+            .map(|(p, _)| *p);
+        match first_to_end {
+            Some(p) => st.sessions.remove(&p),
+            None => break,
+        };
     }
     st.sessions.insert(
         who,
@@ -716,9 +745,10 @@ fn unlock(a: UnlockArgs) -> Result<UnlockOk, Error> {
     let caller = msg_caller();
     let now = time();
     STATE.with(|s| {
-        let mut st = s.borrow_mut();
+        let mut guard = s.borrow_mut();
+        let st = &mut *guard;
         // The gate: the same function the hook ran. A call from another canister skipped the hook.
-        unlock_precheck(&st, &caller, &a, now)?;
+        unlock_precheck(st, &caller, &a, now)?;
         let vid = st.vault_id.clone();
         let msg = unlock_msg(&vid, &caller, &a);
         let id = a.slot_id.to_vec();
@@ -733,10 +763,29 @@ fn unlock(a: UnlockArgs) -> Result<UnlockOk, Error> {
             let row = slot.failed_row;
             if row >= 5 {
                 let level = (row - 5).min(11);
-                slot.locked_until = Some(now + (MINUTE << level).min(24 * 60 * MINUTE));
+                slot.locked_until = Some(now + (MINUTE << level).min(DAY));
             }
+            // The second limit: the wrong tries of the whole vault within thirty days, this one included.
+            st.wrong_times.push(now);
+            if st.wrong_times.len() > 11 {
+                st.wrong_times.remove(0);
+            }
+            let in_vault = st
+                .wrong_times
+                .iter()
+                .filter(|t| now - **t < 30 * DAY)
+                .count() as u32;
+            if in_vault > 10 {
+                slot.locked_until = Some(now + DAY);
+            }
+            // ADR 0012: the wrong tries this key still takes until it is locked, by whichever
+            // of the three limits is closest. Zero exactly when this try locked it.
+            let left = 5u32
+                .saturating_sub(row)
+                .min(11u32.saturating_sub(in_vault))
+                .min(30u32.saturating_sub(slot.uncleared));
             let err = Error::BadProof {
-                tries_left: 5u32.saturating_sub(row) as u8,
+                tries_left: left as u8,
                 settings_hash: ByteBuf::from(settings_hash(&vid, &slot.slot)),
             };
             st.failed_since += 1;
@@ -747,7 +796,7 @@ fn unlock(a: UnlockArgs) -> Result<UnlockOk, Error> {
         slot.locked_until = None;
         slot.last_used = Some(now);
         let wrapped = slot.slot.wrapped.clone();
-        let session_expires = open_session(&mut st, a.session, now)?;
+        let session_expires = open_session(st, a.session, now)?;
         let previous_unlock = st.last_unlock.replace(now);
         let failed_since = std::mem::take(&mut st.failed_since);
         let uncleared = st

@@ -39,6 +39,21 @@ struct Device {
     slot: Slot,
 }
 
+/// ADR 0012: the label of an unlock key pads to 64 bytes, so the ciphertext has 92.
+fn label_ct(vid: &[u8], vk: &[u8; 32], slot_id: &[u8], nonce_tag: u8, name: &str) -> Vec<u8> {
+    assert!(name.len() <= 60, "a label holds at most 60 bytes of text");
+    let k_meta = hkdf32(vk, vid, b"ic-vault/v1/meta");
+    let aad = cat(&[&lp(b"ic-vault/v1/label"), &lp(vid), slot_id]);
+    let ct = seal(
+        &k_meta,
+        &bytes::<12>(nonce_tag),
+        &pad(name.as_bytes(), 64),
+        &aad,
+    );
+    assert_eq!(ct.len(), 92);
+    ct
+}
+
 fn build_device_slot(vid: &[u8], vk: &[u8; 32], pin: &str) -> Device {
     let f = bytes::<32>(10); // stands in for the PRF output of the passkey
     let id = bytes::<16>(11);
@@ -74,7 +89,7 @@ fn build_device_slot(vid: &[u8], vk: &[u8; 32], pin: &str) -> Device {
         auth_pub: bb(keys.auth.verifying_key().as_bytes()),
         wrap: 1,
         wrapped: bb(&wrapped),
-        label: bb(&[0u8; 44]),
+        label: bb(&label_ct(vid, vk, &id, 17, "Test phone")),
     };
     Device { f, slot }
 }
@@ -103,7 +118,7 @@ fn build_kit_slot(vid: &[u8], vk: &[u8; 32], kit_secret: &[u8; 32]) -> (Slot, Pr
         auth_pub: bb(keys.auth.verifying_key().as_bytes()),
         wrap: 1,
         wrapped: bb(&wrapped),
-        label: bb(&[0u8; 44]),
+        label: bb(&label_ct(vid, vk, &id, 25, "Recovery kit")),
     };
     let export_header = seal(
         &kit_export,
@@ -124,6 +139,18 @@ struct Proofs {
     kek: [u8; 32],
 }
 
+/// The slow step: the PIN through Argon2id. The tests do it once per PIN.
+fn pin_key(info: &SlotInfo, pin: &str) -> [u8; 32] {
+    let kdf = info.kdf.as_ref().unwrap();
+    argon2id(
+        pin.as_bytes(),
+        &kdf.salt,
+        kdf.memory_kib,
+        kdf.passes,
+        kdf.lanes,
+    )
+}
+
 fn prove(
     vid: &[u8],
     canister: Principal,
@@ -133,15 +160,19 @@ fn prove(
     pin: &str,
     session: Principal,
 ) -> Proofs {
-    let kdf = info.kdf.as_ref().unwrap();
-    let p = argon2id(
-        pin.as_bytes(),
-        &kdf.salt,
-        kdf.memory_kib,
-        kdf.passes,
-        kdf.lanes,
-    );
-    let keys = slot_keys(f, &p, &info.salt, vid, &info.id, KIND_PASSKEY_PIN);
+    prove_with(vid, canister, caller, info, f, &pin_key(info, pin), session)
+}
+
+fn prove_with(
+    vid: &[u8],
+    canister: Principal,
+    caller: Principal,
+    info: &SlotInfo,
+    f: &[u8; 32],
+    p: &[u8; 32],
+    session: Principal,
+) -> Proofs {
+    let keys = slot_keys(f, p, &info.salt, vid, &info.id, KIND_PASSKEY_PIN);
     let msg = unlock_msg(
         vid,
         canister.as_slice(),
@@ -290,7 +321,7 @@ fn thin_slice_end_to_end() {
     assert_eq!(st.vault_id.as_slice(), vid.as_slice());
     assert!(!st.recovery_pending);
 
-    // Claim: wrong code, right code, second claim.
+    // Claim: wrong code, right code, second claim. ADR 0012: the hook checks the code.
     let claim = |who: Principal, code: &[u8]| -> VResult {
         decode_one(
             &pic.update_call(can, who, "claim", encode_one(bb(code)).unwrap())
@@ -298,10 +329,21 @@ fn thin_slice_end_to_end() {
         )
         .unwrap()
     };
-    assert!(matches!(
-        claim(stranger, &[9u8; 32]),
-        VResult::Err(Error::NotAllowed)
-    ));
+    assert!(
+        pic.update_call(can, stranger, "claim", encode_one(bb(&[9u8; 32])).unwrap())
+            .is_err(),
+        "the hook turns a wrong claim code away"
+    );
+    assert!(
+        pic.update_call(
+            can,
+            owner,
+            "claim",
+            encode_one(bb(&claim_code[..31])).unwrap()
+        )
+        .is_err(),
+        "and a code of another length"
+    );
     assert!(matches!(claim(owner, &claim_code), VResult::Ok));
     assert!(
         pic.update_call(can, stranger, "claim", encode_one(bb(&claim_code)).unwrap())
@@ -515,4 +557,114 @@ fn thin_slice_end_to_end() {
     assert!(pic
         .update_call(can, session, "sync", encode_one(0u64).unwrap())
         .is_err());
+
+    // ----- ADR 0012 -----
+    let good_p = pin_key(&info, pin);
+    let wrong_p = pin_key(&info, "482914");
+    let second = std::time::Duration::from_secs(1);
+    let alive = |who: Principal| {
+        pic.update_call(can, who, "sync", encode_one(0u64).unwrap())
+            .is_ok()
+    };
+    let open_session = |who: Principal| {
+        pic.advance_time(second);
+        let info = device_info(&pic, can, owner, &dev.slot.id);
+        let pr = prove_with(&vid, can, owner, &info, &dev.f, &good_p, who);
+        unlock(&pic, can, owner, &info, who, &pr)
+            .unwrap()
+            .expect("unlock")
+    };
+    let wrong_try = || -> u8 {
+        pic.advance_time(second);
+        let info = device_info(&pic, can, owner, &dev.slot.id);
+        let who = principal_of(99);
+        let pr = prove_with(&vid, can, owner, &info, &dev.f, &wrong_p, who);
+        match unlock(&pic, can, owner, &info, who, &pr).expect("a wrong PIN reaches the method") {
+            Err(Error::BadProof { tries_left, .. }) => tries_left,
+            other => panic!("expected BadProof, got {:?}", other.map(|_| ()).err()),
+        }
+    };
+
+    // A sixth full session is not refused. It ends the one whose time runs out first.
+    let s: Vec<Principal> = (70..76).map(principal_of).collect();
+    for who in &s[..5] {
+        open_session(*who);
+    }
+    assert!(
+        s[..5].iter().all(|who| alive(*who)),
+        "five sessions are live"
+    );
+    // The first one renews, so the second is now the one that runs out first.
+    pic.advance_time(second);
+    pic.update_call(can, s[0], "renew", encode_args(()).unwrap())
+        .unwrap();
+    open_session(s[5]);
+    assert!(!alive(s[1]), "the session that would end first is gone");
+    for who in [s[0], s[2], s[3], s[4], s[5]] {
+        assert!(alive(who), "the other sessions keep working");
+    }
+
+    // `tries_left` follows whichever limit is closest. The vault has one wrong try so far.
+    let left: Vec<u8> = (0..4).map(|_| wrong_try()).collect();
+    assert_eq!(left, [4, 3, 2, 1], "five in a row is the closest limit");
+    open_session(principal_of(80)); // a good unlock ends the row, not the count of the vault
+    let left: Vec<u8> = (0..4).map(|_| wrong_try()).collect();
+    assert_eq!(left, [4, 3, 2, 1]);
+    open_session(principal_of(81));
+    // Nine wrong tries in the vault. The tenth is the last one before the 24 hours.
+    assert_eq!(wrong_try(), 1, "the limit of the vault is now the closest");
+    assert_eq!(wrong_try(), 0, "the eleventh wrong try locks the key");
+    let info = device_info(&pic, can, owner, &dev.slot.id);
+    let now = pic.get_time().as_nanos_since_unix_epoch();
+    let until = info.locked_until.expect("locked");
+    let day = 24 * 3600 * 1_000_000_000u64;
+    assert!(until > now + day - 60_000_000_000 && until <= now + day);
+    let pr = prove_with(&vid, can, owner, &info, &dev.f, &good_p, principal_of(82));
+    assert!(
+        unlock(&pic, can, owner, &info, principal_of(82), &pr).is_err(),
+        "a locked key is refused in the hook, even with the right PIN"
+    );
+}
+
+/// ADR 0012: the canister refuses a slot whose label is not 92 bytes.
+#[test]
+fn a_label_of_another_length_is_refused() {
+    let pic = PocketIc::new();
+    let claim_code = bytes::<32>(1);
+    let can = install(
+        &pic,
+        InstallArgs::Init {
+            claim_hash: bb(&sha256(&claim_code)),
+            host_suffix: "icp.net".into(),
+            environment: "production".into(),
+            local_root_key: None,
+        },
+    );
+    let owner = principal_of(2);
+    let r: VResult = decode_one(
+        &pic.update_call(can, owner, "claim", encode_one(bb(&claim_code)).unwrap())
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(matches!(r, VResult::Ok));
+    let vid = can.as_slice().to_vec();
+    let vk = bytes::<32>(30);
+    let mut dev = build_device_slot(&vid, &vk, "271828");
+    dev.slot.label = bb(&[0u8; 44]);
+    let (kit_slot, kit_principal, export_header) = build_kit_slot(&vid, &vk, &bytes::<32>(31));
+    let vault_auth = SigningKey::from_bytes(&hkdf32(&vk, &vid, b"ic-vault/v1/vault-auth"));
+    let setup = SetupArgs {
+        device_slot: dev.slot,
+        kit_slot,
+        kit_principal,
+        export_header: bb(&export_header),
+        vault_auth_pub: bb(vault_auth.verifying_key().as_bytes()),
+        session: principal_of(40),
+    };
+    let r: VResult = decode_one(
+        &pic.update_call(can, owner, "setup_finish", encode_one(setup).unwrap())
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(matches!(r, VResult::Err(Error::Invalid(_))));
 }
