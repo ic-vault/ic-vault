@@ -104,9 +104,10 @@ A vault is set up twice: once on staging as a rehearsal, then for real. Both run
 **The watchdog** is `scripts/watch.sh`, run once a day by a scheduler of your choice. It needs the canister id and nothing else.
 
 - It reads the module hash and the controllers with `icp canister status --public`, calls `status`, and loads the start page.
-- It fails when the vault does not answer, when the module hash is not on the list of released hashes, when the controllers differ from the recorded ones, or when the health value is not `ok`.
+- It fails when the vault does not answer, when the module hash is not on the list of released hashes, when the controllers differ from the recorded ones, when the health value is not `ok`, or when `status` shows a pending recovery, ADR 0007.
+- A pending recovery that you did not start means that someone holds your kit. Run `doctor.sh` and `verify.sh` first, as the rule below says. Then open the vault on a device you trust, read the blocking warning, and choose kit replacement or re-key. If you set the waiting period below 48 hours, run the watchdog twice a day.
 - A failure reaches you through the scheduler: a failed workflow run that is mailed to you, or a local task that shows a notification. `ops-template/` ships a scheduled workflow for a private repository. **DECIDE** (D17)
-- It holds no key and can change nothing. Whoever runs it learns the address of the vault and nothing more.
+- It holds no key and can change nothing. Whoever runs it learns the address of the vault, and whether a recovery is pending.
 - After a failure the rule is: do not unlock before `doctor.sh` and `verify.sh` have run.
 
 **Calendar**
