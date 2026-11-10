@@ -107,12 +107,12 @@ A spike is throwaway code under `spikes/` that answers one question. It ends in 
 
 | ID | Question | Method | Passes when | If it fails | Feeds |
 |---|---|---|---|---|---|
-| SP1 | Which of your devices give a PRF output, at creation or only at sign-in? What is the capability name? Does a passkey work on the real kind of address? | A test page served by the SP3 canister on mainnet. The address `<id>.icp.net` is itself on the public suffix list, so a page hosted elsewhere proves nothing. Create a passkey with PRF, read the output at creation and at sign-in. Run it on every device and browser you own, and in Playwright with a virtual authenticator. Run every passkey test at both `<id>.icp.net` and `<id>.icp0.io`, see ADR 0002. Note also whether the browser can scan a QR code by itself | A table of device, browser, authenticator and result exists, with a result for each address. Every device you want to use passes at the address of ADR 0002 | The passphrase key comes back into the first release before the freeze, by ADR, and is the default on the failing devices. If no device passes, stop and rethink gate 2. If the passkey fails at the address of ADR 0002 and passes at the other one, a new ADR changes decision D8 before M4-07 | M1-01, M2-03, M3-02, M3-07, decision D8 in ADR 0002 |
+| SP1 | Which of your devices give a PRF output, at creation or only at sign-in? What is the capability name? Does a passkey work on the real kind of address? | A test page served by the SP3 canister on mainnet. The address `<id>.icp.net` is itself on the public suffix list, so a page hosted elsewhere proves nothing. Create a passkey with PRF, read the output at creation and at sign-in. Run it on every device and browser you own, and in Playwright with a virtual authenticator. Run every passkey test at both `<id>.icp.net` and `<id>.icp0.io`, see ADR 0002. Note also whether the browser can scan a QR code by itself. Three more tests, ADR 0009: two passkeys with different PRF salts on one device, read in one request that offers both. One synced passkey read on two devices, with the outputs compared. A phone as the passkey for a desktop browser, where you would use that | A table of device, browser, authenticator and result exists, with a result for each address. Every device you want to use passes at the address of ADR 0002, the three tests of ADR 0009 included | The passphrase key comes back into the first release before the freeze, by ADR, and is the default on the failing devices. If no device passes, stop and rethink gate 2. If the passkey fails at the address of ADR 0002 and passes at the other one, a new ADR changes decision D8 before M4-07. If one request cannot carry a salt for each passkey, an ADR picks one salt per vault and key epoch, or an unlock screen that asks for the key first, before M1-01. If a synced passkey gives different outputs on two devices, an ADR changes spec 6.4 | M1-01, M2-03, M3-02, M3-07, decision D8 in ADR 0002 |
 | SP2 | How long does Argon2id with 64 MiB and 3 passes take in the browser? | Benchmark `@noble/hashes` against a Wasm build on a desktop and a mid-range phone | A PIN unlock adds at most 2 seconds on the phone | Use the Wasm build by ADR, or lower the memory by ADR. Both change the page policy | M2-03 |
 | SP3 | Does one Wasm that embeds the web app work on mainnet with the strict headers? | The M0 hello canister: React page with a worker, page policy with Trusted Types, a certified `config.json`, deployed locally and to a throwaway canister on the confidential subnet with the scripts-to-be | The page loads at `<id>.icp.net`. Internet Identity sign-in works in its popup. The Wasm installs, whatever its size. `icp canister status --public` shows the hash | Relax one header at a time by ADR, or split web app and API into two canisters. The second costs a hash to verify and is a spec change | M0-05, M4-01 |
 | SP4 | Deferred with the network key, spec 6.5. The question was whether `key_1` answers a canister on the confidential subnet | Not run now | Nothing to pass | Nothing | The later release that adds the network key |
 | SP5 | Does an Ed25519 check fit into `canister_inspect_message`? | PocketIC test that counts instructions | It stays under a tenth of the limit of that hook | Drop the early check. Wrong proofs on passkey and kit slots then cost the vault cycles, and need a rate limit instead | M1-05 |
-| SP6 | Can the pinned SDK sign calls with a non-extractable session key, with two agents in one page? | A page that signs in, creates a session key, and calls the hello canister as both identities | Both callers arrive as expected. The session key cannot be exported | An extractable key held in the worker instead of the UI thread | M3-01 |
+| SP6 | Can the pinned SDK sign calls with a non-extractable session key, with two agents in one page? Can an identity that signs inside the worker drive a third agent, and which bytes is it asked to sign? What does the Internet Identity client store, and does a sign-in end after `maxTimeToLive`? ADR 0005 and 0006 | A page that signs in with `maxTimeToLive`, creates a session key, and calls the hello canister as both identities and as a worker-held Ed25519 identity. It lists every entry in IndexedDB, localStorage, sessionStorage and the cookies after sign-in | All three callers arrive as expected. The session key cannot be exported. The list of stored entries and the bytes to sign are written into the ADR of the spike. The sign-in is gone after `maxTimeToLive` | An extractable key held in the worker instead of the UI thread. If the stored entries or the bytes to sign do not fit ADR 0005 or 0006, a new ADR changes them before the freeze | M1-01, M3-01 |
 | SP7 | Can a canister that controls itself install code on itself? | Local network only. Belongs to M7 | An upgrade completes and the canister answers afterwards | A small upgrader canister per vault | M7-01 |
 | SP8 | Do end-to-end tests run in CI with the local Internet Identity and a virtual authenticator? | Playwright against the local network, signing in and calling the hello canister | Green in CI, three runs in a row | End-to-end tests run locally before each merge, and CI runs the rest | M0-06, M3-08 |
 
@@ -159,6 +159,7 @@ type InstallArgs = variant {
     claim_hash : blob;            // SHA-256 of the claim code
     host_suffix : text;           // "icp.net" on mainnet
     environment : text;           // "production", "staging" or "local"
+    local_root_key : opt blob;    // only with the environment "local", ADR 0003
   };
   Upgrade : record {};            // empty in the first release
 };
@@ -168,7 +169,7 @@ type Error = variant {
   WrongState : text;              // for example "setup done"
   NotFound;
   Locked : opt nat64;             // locked until this time. Nothing means: until a full session clears it
-  BadProof : record { tries_left : nat8; settings_hash : blob };   // hash of the slot settings the canister holds
+  BadProof : record { tries_left : nat8; settings_hash : blob };   // spec 6.3. Never covers a proof key or the blob, ADR 0004
   StaleNonce : nat64;             // the current nonce of that slot, try again with it
   RecoveryPending : nat64;        // the kit principal may unlock at this time
   VersionConflict : nat64;        // the current version of the item
@@ -276,6 +277,7 @@ type BackupManifest = record {
 type Status = record {
   version : text; environment : text; vault_id : blob; health : Health;
   kit_number : nat32; kit_created : nat64;
+  recovery_pending : bool;        // true while a recovery with the kit alone is pending or ready. No time. ADR 0007
 };
 type TrustInfo = record {
   balance : nat; liquid : nat; burn_per_day : opt nat;
@@ -342,7 +344,7 @@ service : (InstallArgs) -> {
 | 8 | Map | Due time, then kind, then id | Empty. This is the index of what has to be removed, and when |
 | 9 | Map | Event number | `AuditEvent`. The alert log, kept until acknowledged |
 
-- **`Config` holds:** schema version, vault id, environment name, host suffix, Internet Identity owner, kit principal, claim hash, setup flag, vault key epoch, change number, event number, last acknowledged event, kit number and date, export header, waiting period, pending recovery, quota and quota used, item count, the times of the last ten wrong tries in the vault, the last eight balance samples, taken at an unlock and at most once a day, time of the last unlock, the vault proof key, the retired credential ids.
+- **`Config` holds:** schema version, vault id, environment name, host suffix, local root key, Internet Identity owner, kit principal, claim hash, setup flag, vault key epoch, change number, event number, last acknowledged event, kit number and date, export header, waiting period, pending recovery, quota and quota used, item count, the times of the last ten wrong tries in the vault, the last eight balance samples, taken at an unlock and at most once a day, time of the last unlock, the vault proof key, the retired credential ids.
 - **Values are Candid-encoded records** with an unbounded size. Keys are fixed-size bytes so the maps sort correctly.
 - **The heap holds** the sessions and the asset router. The router is rebuilt in `init` and `post_upgrade`. An upgrade ends every session.
 - **The expiry index** carries three kinds of entries: empty the trash for one item, drop one tombstone, drop one handoff. There is no timer. `unlock` and `sync` work off at most 100 due entries each time they run, and a handoff is also checked when it is used.
@@ -379,8 +381,11 @@ The UI thread and the crypto worker exchange typed messages. Buffers are transfe
 | `init` | Config of 3.9 | Nothing |
 | `kit.create` | Kit number | The 24 words and the check code, for the sheet |
 | `kit.confirm` | The words as typed | Yes, or the position of the first wrong word |
+| `kit.open` | The 24 words as typed, on the recovery screens | The kit principal `R` and its public key, or the position of the first wrong word. The worker keeps the kit secret until `lock` |
+| `kit.sign` | The bytes of one request, as the SDK hands them to an identity | A signature made with the kit identity. Only after `kit.open`, and only for bytes that start with the request domain separator of the IC |
 | `setup.build` | `F`, PIN, credential id, session principal | `SetupArgs` |
-| `unlock.prove` | `SlotInfo`, `F`, PIN, nonce, caller principal, session principal | The proofs: two for a passkey key with a PIN, one otherwise |
+| `unlock.prove` | `SlotInfo`, `F`, PIN, nonce, caller principal, session principal. No `F` for the kit key: the worker uses the kit it holds since `kit.open` | The proofs: two for a passkey key with a PIN, one otherwise |
+| `settings.hash` | The `SlotInfo` that the last proof was built from | The settings hash of spec 6.3, to compare with the one in `BadProof` |
 | `unlock.open` | Slot blob | Nothing. The vault key now lives in the worker |
 | `headers.open` | Item records | Decrypted headers |
 | `body.open` | Item record and body ciphertext | The decrypted body |
@@ -398,7 +403,9 @@ The UI thread and the crypto worker exchange typed messages. Buffers are transfe
 
 Three kinds of plaintext cross to the UI thread, because a person has to see them: kit words and check code, the handoff code, and item contents. Nothing else does.
 
-`kit.replace`, `handoff.create` and `rekey.build` are as good as a key export. The worker answers them only after a fresh passkey answer that opens the current slot. A session that was opened with the kit is exempt. The worker is the one place for key handling that a reviewer has to read. It does not stop a script in the page from asking it to use the keys.
+`platform/` wraps `kit.sign` as an identity for the SDK, so that calls as the kit principal are signed in the worker and the kit key never leaves it, ADR 0005.
+
+`kit.replace`, `handoff.create` and `rekey.build` are as good as a key export. The worker answers them only after a fresh passkey answer for the current slot. At unlock the worker keeps the passkey proof key `auth_f_pub` that it derived. A fresh answer is accepted when the key derived from the new `F` equals the kept one, ADR 0005. A session that was opened with the kit is exempt. The worker is the one place for key handling that a reviewer has to read. It does not stop a script in the page from asking it to use the keys.
 
 ### 3.6 States of the web app
 
@@ -406,7 +413,7 @@ Three kinds of plaintext cross to the UI thread, because a person has to see the
 |---|---|---|
 | Boot | Page load. Reads `config.json`, checks the origin | Wrong origin, Signed out |
 | Wrong origin | The host is not an accepted host | Nowhere. Shows the right address |
-| Signed out | No valid Internet Identity delegation | Not owner, Setup, Locked |
+| Signed out | No valid Internet Identity sign-in. A sign-in lasts 8 hours at most, ADR 0006 | Not owner, Setup, Locked |
 | Not owner | `slots_public` is refused | Signed out. Says that this identity does not own the vault |
 | Setup | Owner, setup not complete | Locked, after `setup_finish` |
 | Locked | Setup complete, no session | Unlocking, Recovery pending |
@@ -461,10 +468,12 @@ The canister builds `/config.json` in `init` and in `post_upgrade`, and certifie
 
 ```text
 { "canister_id": text, "vault_id": text, "hosts": [text], "environment": text,
-  "version": text, "api_host": "https://icp-api.io" }
+  "version": text, "api_host": "https://icp-api.io" or null, "root_key": hex text or null }
 ```
 
 The app refuses to run when `location.host` is not in `hosts`, or when the first label of the host is not `canister_id`.
+
+**The root key of a local network, ADR 0003.** With the environment `production` or `staging`, `api_host` is `https://icp-api.io` and `root_key` is `null`. With `local`, `api_host` is `null`, which means the origin of the page, and `root_key` is the key from the install arguments. The canister refuses an install where the key and the environment do not fit, or where a `local` vault has a host suffix other than `localhost` with an optional port. The app uses `root_key` only when the environment is `local` and the host name is `localhost` or ends in `.localhost`. A key on any other host stops the app. Without a key the SDK uses its built-in mainnet key.
 
 ### 3.10 Corrections to the spec
 
@@ -494,7 +503,7 @@ Writing this section, and two independent reviews, showed gaps and slips in the 
 | C20 | The page policy allows passkeys and clipboard writes for the vault itself, and names one Trusted Types policy for starting the worker | "Everything else off" would have blocked passkeys, and starting a worker is a Trusted Types sink |
 | C21 | Size limits are stated for the padded plaintext. The ciphertext is 28 bytes longer | A full body would have exceeded its own limit |
 | C22 | A rule for refusals that come without a reason. An error `Unavailable` came with it and went again with the network key | A refusal by the message hook was not covered |
-| C23 | The idle logout of the Internet Identity client is switched off | By default it signs out and reloads the page after ten idle minutes |
+| C23 | The idle logout of the Internet Identity client is switched off. Withdrawn by ADR 0006: the pinned client has no idle logout. The sign-in passes `maxTimeToLive` of 8 hours instead | By default it signs out and reloads the page after ten idle minutes |
 | C24 | The claim of spec section 1 is restated. It covers whoever can read, not whoever can change the code the browser runs | The gateway, a majority of the subnet and a stage A controller can serve altered code, and altered code reads everything at the next unlock |
 | C25 | The client refuses Argon2id parameters below a built-in minimum | The parameters arrive in an answer from a single node |
 | C26 | Passphrases are always generated. A self-chosen one is not accepted | A passphrase key has no hardware secret, so a guessable passphrase can be tested offline against a state copy |
@@ -535,8 +544,8 @@ Goal: an empty project in which a certified page loads from a canister, locally 
 | M0-01 ✓ | Root files of spec section 10, except `icp.yaml`, `Cargo.toml` and `deny.toml`, toolchain pins, license, a README that says experimental and not independently reviewed, a `SECURITY.md` that points to GitHub's private vulnerability reporting, ignore rules with `.icp/`, pnpm workspace with the 7-day release age | C | none | Root files | A clean clone installs with the frozen lockfile and without scripts | R1 | S |
 | M0-02 ✓ | Documents: threat model, crypto spec, operations, this plan, `AGENTS.md`, `CLAUDE.md`, pinned skills, ADR 0001 on the toolchain, ADR 0002 on the gateway domain | C, H | M0-01 | `docs/`, `AGENTS.md` | The copies match the spec. You have signed ADR 0002, which is decision D8 | R1 | S |
 | M0-03 | `setup.sh`, `dev.sh`, `check.sh`, wired to pnpm. The gate of 5.1 with its eight steps, still empty | C | M0-01 | `scripts/`, `package.json` | `pnpm check` runs all steps and passes | R2 | S |
-| M0-04 | CI: the gate on every pull request, merge blocked when red, no credentials | C | M0-03 | `.github/workflows/check.yml` | A pull request with a failing test cannot merge | R1 | S |
-| M0-05 | Hello canister, with the first `icp.yaml`, the Cargo workspace and the `cargo deny` policy: certified page with a worker, the final headers of spec 7.6 including the Trusted Types policy for the worker, `config.json`. Spike SP3 on a throwaway mainnet canister | A, D, H | M0-03 | `icp.yaml`, `Cargo.toml`, `deny.toml`, `http.rs`, `apps/web/` | Local: the page loads and a PocketIC test verifies the response. Mainnet: the pass conditions of SP3 | R2 | M |
+| M0-04 | CI: the gate on every pull request, merge blocked when red, no credentials. `CODEOWNERS` for the R2 paths. You set the ruleset for `main` and create the account for agents, ADR 0011 | C, H | M0-03. The part of lane H can be done at once | `.github/workflows/check.yml`, `.github/CODEOWNERS`, `docs/runbooks/github-settings.md` | A pull request with a failing test cannot merge. A direct push to `main` is refused. A pull request that touches an R2 path cannot merge without your approval | R1 | S |
+| M0-05 | Hello canister, with the first `icp.yaml`, the Cargo workspace and the `cargo deny` policy: certified page with a worker, the final headers of spec 7.6 including the Trusted Types policy for the worker, `config.json`. Spike SP3 on a throwaway mainnet canister | A, D, H | M0-03 | `icp.yaml`, `Cargo.toml`, `deny.toml`, `http.rs`, `apps/web/` | Local: the page loads and a PocketIC test verifies the response. An install whose root key and environment do not fit is refused, and the app stops when it finds a root key on a host that is not loopback, ADR 0003. Mainnet: the pass conditions of SP3 | R2 | M |
 | M0-06 | End-to-end harness with the local Internet Identity and a virtual authenticator, spike SP8. Tests load the page the canister serves, never the development server | D | M0-05 | `apps/web/e2e/` | A sign-in test is green in CI three times in a row | R1 | M |
 
 ### Design review
@@ -562,16 +571,16 @@ Goal: the whole canister of spec section 7, driven by tests with fixed keys. No 
 | M1-02 | State of 3.3: memories, stored types, config with schema version, `init`, `post_upgrade`, refusal of newer data | A | M1-01 | `state.rs`, `upgrade.rs` | Round trips for every stored type. Upgrade from an empty and from a full state. Newer schema with older code is refused. Instruction count recorded | R2 | M |
 | M1-03 | Gates, sessions on the heap, `canister_inspect_message`, the matrix test | A | M1-02 | `access.rs`, `sessions.rs`, `tests/authz.rs` | The matrix passes for every method, with stubs behind the gates, as ingress and through a proxy canister that skips the message hook. Session expiry, renewal and the cap of five. The hook refuses every ingress call to a query method | R2 | M |
 | M1-04 | `claim`, `setup_finish` | A | M1-03 | `claim.rs` | Claim works once. Wrong code and second claim refused. Setup runs once, stores both slots and the vault proof key, and opens the first session | R2 | S |
-| M1-05 | `unlock`: two proofs, a nonce per key, failed tries, the three limits, alerts in the result | A | M1-04, SP5 | `unlock.rs`, `slots.rs`, `tests/unlock.rs` | Valid proofs, wrong passkey proof refused in the hook and never counted, wrong PIN proof counted, stale nonce, replayed call, locked slot, doubling up to 24 hours. A trap forced after the check leaves nothing behind, and a wrong PIN is counted even when the log cannot be written. Ten wrong tries across two keys reach the vault limit, and after 30 the key stays locked until cleared. The hook never reveals whether a PIN was right | R2 | L |
+| M1-05 | `unlock`: two proofs, a nonce per key, failed tries, the three limits, alerts in the result | A | M1-04, SP5 | `unlock.rs`, `slots.rs`, `tests/unlock.rs` | Valid proofs, wrong passkey proof refused in the hook and never counted, wrong PIN proof counted, stale nonce, replayed call, locked slot, doubling up to 24 hours. A trap forced after the check leaves nothing behind, and a wrong PIN is counted even when the log cannot be written. Ten wrong tries across two keys reach the vault limit, and after 30 the key stays locked until cleared. A successful unlock does not lower that count, ADR 0010. The settings hash of a wrong try stays the same when a proof key or the blob changes, ADR 0004. The hook never reveals whether a PIN was right | R2 | L |
 | M1-06 | Waiting period, `recovery_cancel`, `owner_set` | A | M1-05 | `unlock.rs`, `access.rs`, `tests/recovery.rs` | With the PocketIC clock: pending, cancelled from a device session, pending again, open after the delay. Internet Identity plus kit opens at once. A ready recovery is used once, lapses after 7 days, and is cleared by kit replacement and re-key. The kit principal is refused on every other key, and in the hook while a recovery is pending. `owner_set` refuses the three forbidden principals | R2 | M |
 | M1-07 | Items: put, body, trash, restore, purge, quota, item limit | A | M1-03 | `items.rs`, `tests/items.rs` | Create, update, version conflict, every size limit, quota, the limit of 10,000, delete, restore, purge, body with its version | R1 | M |
 | M1-08 | `sync` with the change index and paging | A | M1-07 | `sync.rs` | Paging over 2,500 items. No item is missed when writes happen between pages. Tombstones. Page size limit | R1 | M |
 | M1-09 | Expiry index, worked off at unlock and at sync | A | M1-07 | `limits.rs`, `items.rs` | With the clock: after day 30 the next unlock empties the trash, after day 90 the tombstone goes, at most 100 entries per call | R1 | S |
 | M1-10 | Activity log, alert log, `alerts_ack` | A | M1-05 | `audit.rs` | Every event kind of spec 7.5 lands in the right log. A burst of failed unlocks pushes nothing out of the alert log. The unlock result respects the acknowledged mark | R1 | S |
-| M1-11 | `slot_add` with replace, `slot_remove`, `slot_clear_lock`, `kit_replace`, `limits_set` | A | M1-05 | `slots.rs` | Add, replace in one call, remove. The kit slot cannot be removed. Limit of 16. `kit_replace` swaps slot, principal, number and header at once. The kit kind, the kit slot as a replace target, a retired credential id, a malformed proof key and fields that do not fit the kind are refused. Removing a key ends its sessions | R2 | M |
+| M1-11 | `slot_add` with replace, `slot_remove`, `slot_clear_lock`, `kit_replace`, `limits_set` | A | M1-05 | `slots.rs` | Add, replace in one call, remove. `slot_clear_lock` resets the uncleared count of its key, ends its lock and leaves the vault limit, ADR 0010. The kit slot cannot be removed. Limit of 16. `kit_replace` swaps slot, principal, number and header at once. The kit kind, the kit slot as a replace target, a retired credential id, a malformed proof key and fields that do not fit the kind are refused. Removing a key ends its sessions | R2 | M |
 | M1-12 | `rekey` | A | M1-11 | `slots.rs`, `items.rs`, `tests/rekey.rs` | Every data key replaced, the epoch up, other slots gone and their credential ids retired, every other session ended. Fails when the change number moved. 10,000 items fit into one call | R2 | M |
 | M1-13 | `handoff_put`, `enroll_begin`, `enroll_finish` | A | M1-11 | `sessions.rs`, `slots.rs` | Handoff stored and expired. A wrong token is refused in the message hook. A handoff begins once. Without a proof of the vault key there is no session | R2 | M |
-| M1-14 | `status`, health from balance samples taken at unlock, `trust`, budgets | A | M1-09 | `lib.rs`, `limits.rs` | `status` carries no balance and no size. Health follows the samples. The budgets of 5.4 are recorded for a full vault | R1 | M |
+| M1-14 | `status`, health from balance samples taken at unlock, `trust`, budgets | A | M1-09 | `lib.rs`, `limits.rs` | `status` carries no balance and no size. Its recovery flag follows a recovery through every ending of C31 and carries no time, ADR 0007. Health follows the samples. The budgets of 5.4 are recorded for a full vault | R1 | M |
 
 Watch out in M1:
 
@@ -595,7 +604,7 @@ Goal: spec section 6 as a worker with vectors. No network code. Spec 6.1 to 6.5,
 | M2-03 | Slot keys with a PRF salt per slot, Argon2id, inner wrap, both unlock proofs, PIN rules | B | M2-01, SP1, SP2 | `slots.ts`, `proof.ts` | RFC vectors for Argon2id and Ed25519. `slot-keys.json`, `unlock-proof.json`, `slot-wrap.json` for the two kinds of the first release. A slot of another kind is refused. Every refused PIN pattern is refused. Parameters below the minimum are refused | R2 | M |
 | M2-04 | Deferred with the network key, spec 6.5 | B | None | None | Nothing now | None | None |
 | M2-05 | Items: formats of 3.7, header and body encryption, data key wrap | B | M2-01 | `items.ts` | `items.json` for every type. A wrong vault id, item id or version fails. Lengths inside one bucket look the same | R2 | M |
-| M2-06 | Worker shell: protocol of 3.5, key store, lock, branded types, import lint | B | M2-02 to M2-05 | `worker.ts`, lint config | Every message of 3.5 has a test. After `lock` no key is reachable. `Plaintext` cannot be passed to `platform/` | R2 | M |
+| M2-06 | Worker shell: protocol of 3.5, key store, lock, branded types, import lint | B | M2-02 to M2-05 | `worker.ts`, lint config | Every message of 3.5 has a test. `kit.sign` refuses before `kit.open`, and refuses bytes without the request separator. After `lock` no key is reachable. `Plaintext` cannot be passed to `platform/` | R2 | M |
 | M2-07 | Re-key and handoff builders, export header, vault proof, backup MAC | B | M2-06 | `slots.ts`, `kit.ts` | `handoff.json`, `export.json`. A re-key opens with the new kit and the new slot and not with the old ones. The enrolment proof and the MAC are pinned in the vector files | R2 | M |
 | M2-08 | A Rust reference of every construction in spec 6.3, the core of the later offline tool. Interop with the canister | A, B | M2-03, M1-05 | `tools/cli/core/`, `packages/vectors/`, `canisters/vault/tests/` | Both implementations produce every vector file byte for byte. A slot and a proof built by the worker unlock a PocketIC canister | R2 | L |
 | M2-09 | Coverage and remaining properties | B | M2-07 | Tests | Coverage of `crypto/` at 95 percent in the gate. The properties of spec section 12 | R1 | S |
@@ -613,8 +622,8 @@ Goal: claim, setup, unlock, logins and notes, on the local network. Spec 6.6, 8.
 
 | ID | Task | Lane | Depends | Files | Proof | Review | Size |
 |---|---|---|---|---|---|---|---|
-| M3-01 | Platform: config and origin check, Internet Identity with its idle logout switched off, owner agent and session agent, typed actor | D | M0-06, M1-03, SP6 | `platform/identity.ts`, `agents.ts`, `vault-actor.ts` | A wrong host is refused. Owner and session calls arrive as the right callers. The actor accepts only `Ciphertext` | R2 | M |
-| M3-02 | Platform: passkeys with PRF, exclude list, device check | D | SP1 | `platform/passkey.ts` | Create and read with the virtual authenticator. A second enrolment is refused. The relying party id is the full host, and user verification is asked at every use. The device check reports what the authenticator can do | R2 | M |
+| M3-01 | Platform: config and origin check, Internet Identity with a sign-in of 8 hours at most, owner agent and session agent, typed actor | D | M0-06, M1-03, SP6 | `platform/identity.ts`, `agents.ts`, `vault-actor.ts` | A wrong host is refused. The sign-in passes `maxTimeToLive`. Owner and session calls arrive as the right callers. The actor accepts only `Ciphertext` | R2 | M |
+| M3-02 | Platform: passkeys with PRF, exclude list, device check | D | SP1 | `platform/passkey.ts` | Create and read with the virtual authenticator. A second enrolment is refused. The exclude list is left empty only for a re-key, ADR 0008. The relying party id is the full host, and user verification is asked at every use. The device check reports what the authenticator can do | R2 | M |
 | M3-03 | State machine of 3.6 and the sync store | D | M3-01, M2-06 | `vault/machine.ts`, `sync.ts`, `store.ts` | Every transition has a test. Pages are applied in any order. A conflict becomes a copy | R1 | M |
 | M3-04 | Setup screens: claim, device check, kit sheet, full kit entry, passkey and PIN, practice unlock | D | M3-02, M3-03, M1-04 | `ui/setup/` | A wrong word blocks. An abandoned setup leaves nothing behind. The practice unlock is required. The sheet prints alone | R2 | L |
 | M3-05 | Unlock, lock, auto-lock, drafts | D | M3-04, M1-05 | `ui/unlock/`, `vault/machine.ts` | Tries left are shown. Lock on idle and on sleep. A draft is saved and offered again. The worker is gone after a lock | R2 | M |
@@ -630,7 +639,7 @@ Goal: one reproducible Wasm, the scripts, and a staging vault on mainnet that is
 |---|---|---|---|---|---|---|---|
 | M4-01 | Packaging: embed the build, certify, headers, Trusted Types policy, redirects | A, D | M3-08, SP3 | `http.rs`, `vite.config.ts` | Every response verifies against the certified data. No policy violation in the end-to-end run. Raw hosts redirect, and any other host shows the wrong-origin screen. The path for alternative origins answers not found | R2 | L |
 | M4-02 | Reproducible build: container, script, release build in CI, archived inputs, monthly rebuild | C | M0-04 | `docker/`, `build-release.sh`, `.github/workflows/` | Two clean builds give one hash, locally and in CI | R2 | M |
-| M4-03 | Scripts of spec 9.6 and 11.6 and the deployment template | C | M4-02 | `scripts/`, `ops-template/` | On the local network: a wrong setting and a low balance stop `deploy.sh`. `doctor.sh` names each deviation. `watch.sh` fails on each of its four causes. No deletion and no reinstall anywhere | R2 | L |
+| M4-03 | Scripts of spec 9.6 and 11.6 and the deployment template | C | M4-02 | `scripts/`, `ops-template/` | On the local network: a wrong setting and a low balance stop `deploy.sh`. `doctor.sh` names each deviation. `watch.sh` fails on each of its five causes, the pending recovery of ADR 0007 among them. No deletion and no reinstall anywhere | R2 | L |
 | M4-04 | Trust screen and cycles display | D | M4-01 | `ui/trust/` | Module hash and controllers are read from the public state tree. Health and the top-up command are shown | R1 | S |
 | M4-05 | Runbooks: setup day, top-up, upgrade, recovery, hot-fix, release | C | M4-03 | `docs/runbooks/` | Each was carried out once on the local network by an agent that had the runbook and nothing else | R1 | M |
 | M4-06 | Security pass 1 | All | M4-01 to M4-05 | None | One review pass per adversary of spec section 2. Each finding is fixed, or accepted by you in writing | R2 | M |
@@ -646,10 +655,10 @@ Goal: every flow of spec 6.6 that belongs to the first release, except backup. S
 |---|---|---|---|---|---|---|---|
 | M5-01 | Add a device: handoff, code shown and scanned or typed, shortcut for a synced passkey | D | M4-08, M1-13, M2-07 | `ui/devices/` | A passkey prompt comes before the code is shown. With two browser contexts: the new key works. A synced passkey needs no enrolment. Expired and reused codes are refused | R2 | L |
 | M5-02 | Unlock keys: list, remove with the one question, change PIN, clear a lock | D | M5-01, M1-11 | `ui/devices/` | Label and last use shown. The question leads to remove or to re-key. For a lost device with a synced passkey the screen names the account step first. A changed PIN works and the old one does not | R2 | M |
-| M5-03 | Recovery: with Internet Identity, and with the kit alone | D | M4-08, M1-06 | `ui/recovery/` | Both paths end to end, with pending, cancel, and completion after the clock moves. An old kit number is recognised before typing. Cancelling a recovery always leads on to a kit replacement or a re-key | R2 | L |
+| M5-03 | Recovery: with Internet Identity, and with the kit alone | D | M4-08, M1-06 | `ui/recovery/` | Both paths end to end, with pending, cancel, and completion after the clock moves. The kit words go to the worker only, and calls as the kit principal are signed there. An old kit number is recognised before typing. Cancelling a recovery always leads on to a kit replacement or a re-key | R2 | L |
 | M5-04 | Kit replacement and kit check | D | M5-03 | `ui/recovery/`, `ui/safety/` | A passkey prompt comes first. An interrupted replacement leaves the old kit valid. The check code is accepted and refused correctly. An overdue check blocks | R2 | M |
-| M5-05 | Re-key | D | M5-02, M1-12 | `ui/devices/` | A new passkey and a new PIN are created. The new kit is entered in full before the call. Other keys are gone. The old kit and the old passkey fail. The screen says what a re-key cannot undo | R2 | M |
-| M5-06 | Safety check, alerts that block, audit screen | D | M5-04, M1-10 | `ui/safety/` | The four rows turn green and amber as specified. The label stands above them. Each alert kind blocks until acknowledged | R1 | M |
+| M5-05 | Re-key | D | M5-02, M1-12 | `ui/devices/` | A new passkey and a new PIN are created, on the authenticator that holds the old passkey, ADR 0008. An abandoned re-key leaves the old passkey working. The new kit is entered in full before the call. Other keys are gone. The old kit and the old passkey fail. The screen says what a re-key cannot undo | R2 | M |
+| M5-06 | Safety check, alerts that block, audit screen | D | M5-04, M1-10 | `ui/safety/` | The four rows turn green and amber as specified. The label stands above them. Each alert kind blocks until acknowledged. Wrong tries made elsewhere block until answered, and own typos are cleared without a question, ADR 0010 | R1 | M |
 | M5-07 | Remaining error screens and lockout texts | D | M5-06 | `ui/` | Every row of the error table of spec 8.5 has a screen and a test | R0 | S |
 | M5-08 | Hallway test, recovery drill, and the full rehearsal of spec 11.5 on a fresh staging vault | H | M5-07 | None | A protocol of all three. Every stumble is a task | You | Two days |
 | M5-09 | Fixes from M5-08 | D | M5-08 | As needed | The tasks are closed and the ratings of the owner-mistake table are corrected | R1 | M |
@@ -708,7 +717,7 @@ Goal: the vault controls itself. Spec 9.1, 9.5.
 | 3. Rust unit tests | Encodings, lockout arithmetic, limits | 1 minute |
 | 4. PocketIC tests | The canister, including the authorization matrix and the upgrade tests | 5 minutes |
 | 5. Worker tests | Vectors and property tests, coverage of `crypto/` at 95 percent | 2 minutes |
-| 6. Bundle checks | No `fetchRootKey`, no absolute URL outside the allowlist, size report | 30 seconds |
+| 6. Bundle checks | No `fetchRootKey`, no root key outside the rule of ADR 0003, no absolute URL outside the allowlist, size report | 30 seconds |
 | 7. Script checks | No canister deletion and no reinstall mode under `scripts/`, shell lint | 10 seconds |
 | 8. Audits | `pnpm audit`, `cargo deny`, release age of new versions | 30 seconds |
 
@@ -722,7 +731,7 @@ Vectors live in `packages/vectors/` as JSON. The worker tests, the canister test
 |---|---|
 | `encoding.json` | `lp`, integer encodings, padding buckets |
 | `kit.json` | 32 bytes to 24 words and back, checksum failures, kit factor, kit principal, export key, check code |
-| `slot-keys.json` | `F`, `P`, salts, vault id and slot id to `slot_kek` and both proof keys, for the two slot kinds of the first release |
+| `slot-keys.json` | `F`, `P`, salts, vault id and slot id to `slot_kek`, both proof keys and the settings hash, for the two slot kinds of the first release |
 | `unlock-proof.json` | The exact message bytes and both proofs, as the canister code accepts them |
 | `slot-wrap.json` | Inner wrap with a fixed nonce, its associated data, and an encrypted label |
 | `items.json` | Data key wrap, header and body with fixed nonces, every item type |

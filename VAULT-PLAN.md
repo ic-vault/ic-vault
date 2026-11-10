@@ -580,11 +580,11 @@ What the method does for `unlock`, after repeating the hook:
 
 - **It writes the failed try first**, then checks the proof, then takes the try back on success. If anything traps in between, the whole call is undone and the caller learns nothing.
 - **It names the caller.** The signed message contains the caller principal, so a proof made for one owner cannot be submitted by another.
-- **It answers a wrong proof with a hash of the slot settings.** The client compares it with what it used, and can tell the owner when a node had handed out wrong settings.
+- **It answers a wrong proof with a hash of the slot settings.** The client compares it with what it used, and can tell the owner when a node had handed out wrong settings. Spec 6.3 defines the hash. It covers only what `slots_public` hands out and never a proof key, ADR 0004.
 
 | Calls | Caller must be | Extra proof |
 |---|---|---|
-| `http_request`, `status` | anyone | none. Static certified assets, plus version, environment name, vault id, kit number and a coarse health value |
+| `http_request`, `status` | anyone | none. Static certified assets, plus version, environment name, vault id, kit number, a coarse health value and whether a recovery is pending |
 | `claim` | any non-anonymous principal, once | the claim code |
 | `setup_finish` | owner, before setup is complete | none |
 | `slots_public` | owner | none |
@@ -646,7 +646,7 @@ service : (InitArgs) -> {
 - **Deleting moves an item to the trash.** `item_restore` brings it back within 30 days. After that the ciphertext is erased at the next unlock, and `item_purge` erases it at once. A tombstone stays until day 90 so other devices learn about the deletion. Trash counts toward the quota.
 - **`slot_add` can replace.** Given the id of an existing slot it swaps the two in one call. That is how a PIN is changed. `slot_remove` rejects the kit slot.
 - **`owner_set` changes the Internet Identity principal only.** It rejects the anonymous principal, the kit principal and the id of the canister itself. The kit principal changes only through `kit_replace` and `rekey`.
-- **`status` is all the outside world can ask.** It returns the release version, the environment name, the vault id, the number and date of the current kit, and a health value: `ok`, `low` below 365 days until freezing, `urgent` below 90. No balance and no sizes. The watchdog of section 11.6 reads it.
+- **`status` is all the outside world can ask.** It returns the release version, the environment name, the vault id, the number and date of the current kit, and a health value: `ok`, `low` below 365 days until freezing, `urgent` below 90. It also says whether a recovery with the kit alone is pending, without a time, so that the watchdog can warn you inside the waiting period, ADR 0007. No balance and no sizes. The watchdog of section 11.6 reads it.
 - **Restore waits until after the first release.** Two methods will then load a backup file into a fresh canister as ciphertext, in place of setup.
 - **Decisions hang on update calls only.** A query is answered by one node. Alerts and the previous unlock come with the unlock result, the item list comes from `sync`, and a backup takes its kit slot and export header from `backup_manifest`. `slots_public`, `audit` and `trust` are hints: a wrong answer makes an unlock fail or shows stale numbers, and nothing else.
 - **Settings are a reserved item.** They are versioned and synced like any other item, so there is no separate settings call.
@@ -682,7 +682,7 @@ There are two logs. The alert log holds what an owner must see: slot added, slot
 - The frontend build is embedded in the Wasm and certified with `ic-asset-certification` 4 and `ic-http-certification` 4. The router is rebuilt and the certified data is set in both `init` and `post_upgrade`.
 - `http_request` never upgrades to an update call. Asset serving costs the vault no cycles.
 - The canister serves nothing under `/.well-known/ii-alternative-origins`. That file would let other origins share the Internet Identity principal of this vault. A test proves that the path answers not found.
-- The release Wasm is identical for every vault. At install the canister builds a certified `config.json` with its own id, the vault id and the accepted hosts, so the app knows where it is supposed to run. The web app uses hash routes, so one certified page serves every screen. The host suffix and the environment name are install arguments: `icp.net` on mainnet, the local network host in development. A second accepted host for a change of address waits until after the first release.
+- The release Wasm is identical for every vault. At install the canister builds a certified `config.json` with its own id, the vault id and the accepted hosts, so the app knows where it is supposed to run. The web app uses hash routes, so one certified page serves every screen. The host suffix and the environment name are install arguments: `icp.net` on mainnet, the local network host in development. On a local network the canister also takes the root key of that network and serves it in `config.json`. The app uses it only on a loopback host, ADR 0003. A second accepted host for a change of address waits until after the first release.
 - Response headers, all certified:
 
 | Header | Value |
@@ -746,7 +746,7 @@ The canister enforces these. The interface cannot skip them, and neither can a m
 - A lint rule enforces these import boundaries. A branded `Plaintext` type cannot be passed to `platform/` without a compile error.
 - Factor secrets pass through the UI thread only at the moment of entry. They are transferred to the worker and the source buffer is zeroed.
 - The worker is the one place for key handling that a reviewer has to read. It does not stop a script in the page from asking it to use the keys.
-- Three requests to the worker are as good as a key export: a new kit, a code for adding a device, and a re-key. The worker answers them only after a fresh passkey answer that opens the current slot. A session that was opened with the kit is exempt, because the kit was entered minutes before.
+- Three requests to the worker are as good as a key export: a new kit, a code for adding a device, and a re-key. The worker answers them only after a fresh passkey answer for the current slot: it compares the passkey proof key it derives from the answer with the one it kept from the unlock, ADR 0005. A session that was opened with the kit is exempt, because the kit was entered minutes before.
 
 ### 8.2 Hardening
 
@@ -754,9 +754,9 @@ The canister enforces these. The interface cannot skip them, and neither can a m
 - No requests to any origin except the vault itself, the IC API host and the Internet Identity popup. No fonts, analytics, error reporters or CDNs.
 - No service worker in v1. It adds a persistent code cache that a single bad page load could poison.
 - On start the app compares `location.host` with the canonical host built from its canister id and refuses to continue on any other origin.
-- IndexedDB holds exactly one thing: the Internet Identity delegation managed by the auth client.
-- The idle logout of the Internet Identity client is switched off. The vault has its own auto-lock.
-- Production bundles contain no root key override and no call to `fetchRootKey`. A bundle test checks this.
+- The browser stores only what the Internet Identity client keeps for the sign-in: its credential storage in IndexedDB and its record of who is signed in. Spike SP6 lists the exact entries, ADR 0006.
+- Every sign-in passes `maxTimeToLive` of 8 hours, decision D7. The pinned client has no idle logout. The vault has its own auto-lock.
+- No bundle calls `fetchRootKey`, and a bundle test checks this. The only root key other than the built-in one comes from the certified `config.json` of a local network. The app accepts it only on a loopback host with the environment `local`, and stops when it finds one anywhere else, ADR 0003.
 - The setup and recovery screens ask for a browser profile without extensions. An extension that may read every page can read the kit. The self-hosting guide recommends such a profile for daily use too.
 
 ### 8.3 Interface rules that are security rules
@@ -1202,7 +1202,7 @@ The gate opens stage 2 of section 1 and nothing more. Once a year the upkeep che
 - Spec first. If a task needs a change in section 6 or 7, the agent writes an ADR and stops for approval before writing code.
 - Agents load the pinned ICP skills before writing canister or SDK code. Their API names are newer than model training data.
 - Agents never weaken, skip or delete a failing test to reach green. They report it.
-- Agents never add a dependency, a network request, a log line containing arguments, or a storage write outside the two allowed IndexedDB entries.
+- Agents never add a dependency, a network request, a log line containing arguments, or a storage write outside what rule 15 of `AGENTS.md` allows.
 - Mainnet deploys and upgrades are run by you, not by an agent. Agents prepare the release and the runbook output.
 - A new destructive or irreversible action, in the interface or in a script, first gets a row in the owner-mistake table and a safeguard.
 - Upkeep is agent work too. The monthly task has a fixed prompt in Appendix E and ends in a report and at most one pull request. It needs no mainnet access.
@@ -1309,7 +1309,7 @@ The gate opens stage 2 of section 1 and nothing more. Once a year the upkeep che
 | D4 | Subnet | Confidential, 7 nodes |
 | D5 | Network key | Decided on 2026-11-09: deferred until after the first release. Then per device, cached |
 | D6 | Auto-lock time | 5 minutes idle |
-| D7 | Internet Identity delegation lifetime | 8 hours |
+| D7 | Internet Identity sign-in lifetime, passed as `maxTimeToLive`, ADR 0006 | 8 hours |
 | D8 | Canonical gateway domain | Decided on 2026-11-09: `icp.net`, ADR 0002, on condition that spike SP1 passes there on every device you use. For an existing vault it changes only by enrolling every device again |
 | D9 | Kit format | 24 words in BIP39 English encoding, plus QR code and an 8-character check code |
 | D10 | External audit | Decided on 2026-11-09: none, because there is no budget. The release gate of section 12 takes its place |

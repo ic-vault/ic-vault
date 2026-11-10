@@ -16,6 +16,16 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 |---|---|---|
 | [0001](0001-toolchain.md) | Toolchain and pinned skills | Accepted |
 | [0002](0002-gateway-domain.md) | Canonical gateway domain | Accepted |
+| [0003](0003-local-root-key.md) | How the app learns the root key of a local network | Proposed |
+| [0004](0004-settings-hash.md) | What the settings hash covers | Proposed |
+| [0005](0005-worker-kit-recovery.md) | Worker messages for recovery with the kit | Accepted |
+| [0006](0006-internet-identity-client.md) | The plan and version 11 of the Internet Identity client | Accepted |
+| [0007](0007-status-recovery-flag.md) | The public status shows a pending recovery | Proposed |
+| [0008](0008-exclude-list-at-rekey.md) | No exclude list when a re-key creates the new passkey | Proposed |
+| [0009](0009-sp1-prf-salt-rows.md) | Spike SP1 tests the PRF salt per unlock key | Accepted |
+| [0010](0010-clearing-failed-tries.md) | What clears the count of wrong tries, and when the app asks | Proposed |
+| [0011](0011-enforce-review-rules.md) | GitHub enforces the review rules | Accepted |
+| [0012](0012-development-machine.md) | The development machine and the agents in the threat model | Proposed |
 
 ## Template
 

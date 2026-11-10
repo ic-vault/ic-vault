@@ -57,11 +57,12 @@ Work inside WSL on Windows. The README has the setup.
 12. `scripts/` never contains a canister deletion or reinstall mode.
 13. Nothing about a deployed vault enters this repository: no canister ids, no `.icp/` directory, no logs.
 14. No log line containing arguments anywhere, including the web app and the worker.
-15. The browser stores nothing except the Internet Identity delegation that the auth client keeps in IndexedDB, spec 8.2. No other IndexedDB entry, no localStorage, no cache.
+15. The browser stores nothing except what the Internet Identity client keeps for the sign-in: its credential storage in IndexedDB and its record of who is signed in, spec 8.2 and ADR 0006. Nothing else in IndexedDB, localStorage or any cache.
 16. No real secrets anywhere: not in tests, fixtures, examples or screenshots. Use generated values.
 17. Every new version of anything is at least 7 days old: packages, crates, tools, container images, skill commits. pnpm enforces it for npm packages. Apply it by hand to the rest.
 18. Text files use LF line endings. A CRLF changes the release hash. `.gitattributes` enforces it.
 19. Where a skill says to install a tool globally, use the pinned copy, such as `pnpm exec icp`.
+20. Never merge a pull request and never change a repository setting. The owner merges. ADR 0011.
 
 ## Dependencies
 
