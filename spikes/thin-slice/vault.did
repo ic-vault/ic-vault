@@ -52,6 +52,7 @@ type SlotInfo = record {
   id : blob; kind : SlotKind; credential_id : opt blob; prf_salt : opt blob; kdf : opt Kdf; salt : blob;
   nonce : nat64; created : nat64; last_used : opt nat64;
   locked_until : opt nat64; needs_clearing : bool;
+  label : blob;                   // the 92 bytes as stored. Never part of the settings hash. ADR 0013
 };
 type Health = variant { Ok; Low; Urgent; Unknown };
 type SlotsPublic = record {
