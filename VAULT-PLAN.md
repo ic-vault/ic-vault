@@ -743,7 +743,7 @@ The canister enforces these. The interface cannot skip them, and neither can a m
 - `crypto/` runs in a dedicated worker. It is the only place that handles vault key material, and the only place that imports noble. `platform/` uses WebCrypto only through the SDK, for the Internet Identity delegation and the session identity.
 - `platform/` wraps Internet Identity, passkeys and the two IC agents. Its canister functions accept only values of the branded type `Ciphertext`.
 - `vault/` holds the session state machine: locked, unlocking, unlocked, locking.
-- `ui/` renders. It receives the decrypted headers for the list and the body of the one item on screen, and nothing else.
+- `ui/` renders. It receives the decrypted headers for the list, the body of the one item on screen and the names of the unlock keys, ADR 0013, and nothing else.
 - A lint rule enforces these import boundaries. A branded `Plaintext` type cannot be passed to `platform/` without a compile error.
 - Factor secrets pass through the UI thread only at the moment of entry. They are transferred to the worker and the source buffer is zeroed.
 - The worker is the one place for key handling that a reviewer has to read. It does not stop a script in the page from asking it to use the keys.

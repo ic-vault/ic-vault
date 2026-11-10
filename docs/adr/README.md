@@ -30,6 +30,8 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 
 The numbers 0011 and 0012 were first used by two proposals that the owner dropped on 2026-11-10, before any merge. One was about GitHub enforcing the review rules, the other about a separate environment for operating the vault. The words "Drop 0011 and 0012 for now" in the signatures of ADR 0003, 0004, 0007, 0008 and 0010 mean those two proposals, not the records above.
 
+ADR 0012 lists one point as still open: how the name of an unlock key is set and read. ADR 0013 answers it.
+
 ## Template
 
 ```markdown

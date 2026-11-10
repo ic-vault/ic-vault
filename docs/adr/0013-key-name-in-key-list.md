@@ -1,9 +1,9 @@
 # ADR 0013: How the name of an unlock key is set and read
 
-Status: Accepted. Decided by the owner on 2026-11-10
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the open point of ADR 0012, found by its fresh review. The review of plan and architecture of 2026-11-10, finding P4
-Decided by: the owner. It changes sections 3.2, 3.5 and 3.7 of `docs/implementation-plan.md` before task M1-01. It changes neither `docs/crypto-spec.md` nor section 7 of `VAULT-PLAN.md`
+Decided by: the owner. It changes two bullets of `docs/crypto-spec.md` 6.3 and 6.4, sections 3.2, 3.4, 3.5 and 3.7 of `docs/implementation-plan.md` before task M1-01, and one sentence of `VAULT-PLAN.md` 8.1. It does not change section 7 of `VAULT-PLAN.md`
 
 ## Question
 
@@ -19,7 +19,9 @@ Every unlock key stores an encrypted name, its label. Section 3 has no way to se
 6. The label is encrypted with `k_meta`, a child of the vault key, and bound to its key by the associated data `lp("ic-vault/v1/label") || lp(VID) || slot.id`. It always has 92 bytes. Whoever holds the Internet Identity and not the vault key learns nothing from it, not even its length.
 7. The settings hash of ADR 0004 never covers the label. Spec 6.4 says so already.
 8. Section 3.5: "Three kinds of plaintext cross to the UI thread". A name is typed by a person and shown to a person, so it is a fourth.
-9. Section 3.7: "All plaintext is UTF-8 JSON with a format number". A name of at most 60 bytes has no room for that.
+9. Section 3.7: "All plaintext is UTF-8 JSON with a format number", and spec 6.3 says "UTF-8 JSON" too. A name of at most 60 bytes has no room for that.
+10. Spec 6.4 lists what is returned before an unlock: "only id, kind, credential id, salts, parameters and nonce". The label is not in that list.
+11. No rule says that a slot id is used only once. `slot_add` takes a new slot with its own id, and nothing refuses an id that is already stored. The label is bound to the slot id alone.
 
 ## Options
 
@@ -36,7 +38,9 @@ Chosen: A.
 **In the interface**
 
 - `SlotInfo` gets `label : blob`, the 92 bytes as stored. `slots_public` returns it for every key.
-- No method renames a key. A label is written with its key and never changes. So a node cannot show an older name of the same key, and the label is as bound to its key as a body is to its item.
+- No method renames a key. A label is written with its key and never changes.
+- A slot id is never used twice. `slot_add`, `kit_replace`, `rekey` and `enroll_finish` refuse a slot whose id is already stored, the id of the slot being replaced included. `setup_finish` and `rekey` refuse two slots with the same id. The worker draws a new random id for every slot it builds.
+- With these two rules a node cannot show another name or an older one for a key. It can still make a name unreadable, hide a key or show a removed one. That is true for the rest of this list already, which section 3.2 calls a hint.
 - `unlock.prove` and `settings.hash` take a `SlotInfo` and ignore its label.
 
 **In the worker**
@@ -44,7 +48,7 @@ Chosen: A.
 - `setup.build`, `slot.build` and `rekey.build` take the name of the device key as one more input, as plain text.
 - The worker refuses a name of more than 60 bytes of UTF-8. An empty name is allowed.
 - The label of a kit slot is always the empty text. The app has its own words for the kit.
-- A new message `labels.open` takes entries of `SlotInfo` and returns the name of each, or for each label that does not open a mark that says so. It works only while the worker holds the vault key.
+- A new message `labels.open` takes entries of `SlotInfo` and returns the name of each, or for each label that does not open a mark that says so. A label does not open when its tag fails, when the length in it is above 60, or when the text is not valid UTF-8. The message works only while the worker holds the vault key.
 - The names of unlock keys are a fourth kind of plaintext that crosses to the UI thread.
 
 **In the plaintext formats**
@@ -53,31 +57,36 @@ Chosen: A.
 
 **In the web app**
 
-- The screens that create a device key ask for its name: setup, adding a device, and a re-key. A change of PIN builds a new key and passes the old name on.
+- The screens that create a device key ask for its name: setup, adding a device, and a re-key. A change of PIN builds a new key and passes the old name on. When the old label does not open, it asks for a name.
 - The list of unlock keys shows the names after an unlock. A label that does not open is shown as unreadable. It is not hidden, and it is not a reason to remove the key.
 - Names are shown as text, never as markup, rule 8.
 
 The owner decided this on 2026-11-10, in the chat with the agent that wrote this record, on a card with the three options above. His choice, as the card recorded it: Chose "Add the name to the key list" on the decision card asking "Choose how the app saves and shows the name of an unlock key". The agent recorded it.
 
+The card said that the encrypted name joins the list of keys the app already reads. It did not say in words that this list is read before an unlock, which is why spec 6.4 changes. The pull request says it, and the owner's merge confirms it.
+
 ## What goes beyond the card
 
 The card asked only where the name is read from. These details were added by the agent. The pull request names them.
 
-- No rename in the first release.
+- No rename in the first release, and no slot id twice.
 - The kit slot has the empty name, and a device key may have one.
 - The name is plain text and not JSON.
 
 ## What the spike shows of this
 
-`spikes/thin-slice/` follows this record. `SlotInfo` has the label, and the test `thin_slice_end_to_end` reads the label of the device key from `slots_public`, opens it with `k_meta` and gets the name back. A label taken from another key does not open. The spike has no worker, so the messages of 3.5 are not shown.
+`spikes/thin-slice/` follows this record. `SlotInfo` has the label, and the test `thin_slice_end_to_end` reads the label of the device key from `slots_public`, opens it with `k_meta` and gets the name back. The spike has no worker, so the messages of 3.5 are not shown. `slot_add`, `kit_replace`, `rekey` and `enroll_finish` are stubs in the spike, so the rule on slot ids is not shown either.
 
 ## Consequences
 
+- `docs/crypto-spec.md` 6.3: the "Plaintext encoding" bullet names the label as plain text. 6.4: the "Returned before unlock" bullet names the encrypted label.
+- `VAULT-PLAN.md` 8.1: `ui/` also receives the names of the unlock keys.
 - `docs/implementation-plan.md`:
   - 3.2: `SlotInfo` gets `label`. The paragraph "Which answers can be trusted" names the label.
+  - 3.4: a slot id is never used twice.
   - 3.5: one more input for `setup.build`, `slot.build` and `rekey.build`, the new message `labels.open`, and four kinds of plaintext.
   - 3.7: the name of an unlock key as plain text.
-  - Proofs of M1-04, M2-03, M3-04, M5-01 and M5-02.
+  - Proofs of M1-04, M1-11, M1-13, M2-02, M2-03, M3-04, M5-01, M5-02, M5-03 and M5-05.
   - M1-01 depends on SP9 and no longer on an open point.
 - ADR 0012 was merged with this point listed as open. It is an accepted record and is not rewritten. This record is the answer it asks for.
 - The Candid interface changes by one field of one record. This is before the freeze of M1-01, so no deployed canister is touched.

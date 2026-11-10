@@ -905,9 +905,12 @@ fn tries_left_at_thirty_uncleared() {
     }
     assert!(left[..26].iter().all(|x| *x == 4), "{left:?}");
     assert_eq!(left[26..], [3, 2, 1, 0]);
+    // The tick lets the test network take over the new time, so that a lock with a time would be over.
+    pic.advance_time(month);
+    pic.tick();
     let info = r.info(&pic);
     assert!(info.needs_clearing);
-    pic.advance_time(month);
+    assert!(info.locked_until.is_none(), "this lock has no end time");
     assert!(
         r.try_unlock(&pic, &r.good_p, principal_of(200)).is_err(),
         "the key stays locked until a full session clears it"
