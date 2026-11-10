@@ -118,7 +118,7 @@ fn build_kit_slot(vid: &[u8], vk: &[u8; 32], kit_secret: &[u8; 32]) -> (Slot, Pr
         auth_pub: bb(keys.auth.verifying_key().as_bytes()),
         wrap: 1,
         wrapped: bb(&wrapped),
-        label: bb(&label_ct(vid, vk, &id, 25, "Recovery kit")),
+        label: bb(&label_ct(vid, vk, &id, 25, "")),
     };
     let export_header = seal(
         &kit_export,
@@ -440,6 +440,31 @@ fn thin_slice_end_to_end() {
         .expect("the slot blob opens");
     assert_eq!(vk_back, vk, "the vault key came back");
     let vk: [u8; 32] = vk_back.try_into().unwrap();
+
+    // ADR 0013: the key list carries the label. With the vault key it opens to the name.
+    let sp: SlotsPublic = decode_one(
+        &pic.query_call(can, owner, "slots_public", encode_args(()).unwrap())
+            .unwrap(),
+    )
+    .unwrap();
+    let k_meta = hkdf32(&vk, &vid, b"ic-vault/v1/meta");
+    let label_aad = |id: &[u8]| cat(&[&lp(b"ic-vault/v1/label"), &lp(&vid), id]);
+    let names: Vec<Vec<u8>> = sp
+        .slots
+        .iter()
+        .map(|s| {
+            assert_eq!(s.label.len(), 92);
+            unpad(&open(&k_meta, &s.label, &label_aad(&s.id)).expect("the label opens"))
+        })
+        .collect();
+    let mut sorted = names.clone();
+    sorted.sort();
+    // The kit slot has the empty name.
+    assert_eq!(sorted, [b"".to_vec(), b"Test phone".to_vec()]);
+    assert!(
+        open(&k_meta, &sp.slots[0].label, &label_aad(&sp.slots[1].id)).is_none(),
+        "a label does not open under the id of another key"
+    );
 
     // Own typo: clear it, as ADR 0010 lets the app do.
     let r: VResult = decode_one(

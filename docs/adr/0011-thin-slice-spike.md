@@ -64,7 +64,7 @@ Two observations that need no decision:
 ## Decision
 
 - Spike SP9 gets a row in section 2 and is done.
-- M1-01 depends on SP9. The four gaps above are answered by ADR 0012, in the same pull request. Its review found a fifth gap, which ADR 0012 lists as open.
+- M1-01 depends on SP9. The four gaps above are answered by ADR 0012, in the same pull request. Its review found a fifth gap, which ADR 0013 answers.
 - `spikes/thin-slice/` stays in the repository until M1-05 has its own tests, then it is deleted.
 
 ## Development dependencies of the spike
@@ -90,5 +90,5 @@ The transitive crates in `Cargo.lock` were not checked one by one against the 7-
 ## Consequences
 
 - `docs/implementation-plan.md`: a row SP9 in section 2, and SP9 in the "Depends" column of M1-01.
-- The spike was changed once more to follow ADR 0012. The results above are from the first run and still hold, except that a wrong claim code and a sixth session now behave as ADR 0012 says. The spike now has 10 tests.
+- The spike was changed once more to follow ADR 0012. The results above are from the first run and still hold, except that a wrong claim code and a sixth session now behave as ADR 0012 says. The spike now has 10 tests, and it follows ADR 0013 too.
 - `spikes/thin-slice/` with its own Cargo workspace and lock file. The root of the repository gets no `Cargo.toml` from this. That stays with M0-05.

@@ -95,6 +95,7 @@ pub struct SlotInfo {
     pub last_used: Option<u64>,
     pub locked_until: Option<u64>,
     pub needs_clearing: bool,
+    pub label: ByteBuf,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -732,6 +733,7 @@ fn slots_public() -> SlotsPublic {
                     last_used: x.last_used,
                     locked_until: x.locked_until,
                     needs_clearing: x.uncleared >= 30,
+                    label: x.slot.label.clone(),
                 })
                 .collect(),
             vk_epoch: 1,
