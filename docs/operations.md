@@ -83,7 +83,7 @@ A vault is set up twice: once on staging as a rehearsal, then for real. Both run
 | Step | When | What | Checkpoint |
 |---|---|---|---|
 | 1. Fund | A week before | `docs/runbooks/top-up.md`: account id, small test transfer, full transfer, mint cycles | `icp cycles balance` covers both vaults |
-| 2. Prepare identities | A week before | A second passkey or a recovery phrase on your Internet Identity. Create `vault-staging` in the development environment. Create `vault-prod` and the backup controller in the operating environment of ADR 0012, which holds only the release scripts, Docker and icp-cli and where no agent runs | You can sign in to Internet Identity from two devices. `vault-prod` does not exist in the development environment |
+| 2. Prepare identities | A week before | A second passkey or a recovery phrase on your Internet Identity. Create `vault-staging`, `vault-prod` and the backup controller in the operating environment of ADR 0012, which holds only the release scripts, Docker and icp-cli and where no agent runs. The development environment works on the local network only | You can sign in to Internet Identity from two devices. No mainnet identity exists in the development environment |
 | 3. Rehearse | Within 7 days before | Steps 4 to 7 against staging with fake data, then one upgrade and one kit recovery | Every checkpoint below passed on staging. Problems are fixed in the scripts, not worked around |
 | 4. Create | Setup day | `deploy.sh production`: balance check, create on the subnet with named cycles and controllers, apply settings, install in install mode | The script stops at the first failed check |
 | 5. Verify | Setup day | `doctor.sh` and `verify.sh`: subnet, environment name, freezing threshold, controllers, module hash against the release | Both report healthy. Only then is the claim link shown |
@@ -106,9 +106,9 @@ A vault is set up twice: once on staging as a rehearsal, then for real. Both run
 
 - It reads the module hash and the controllers with `icp canister status --public`, calls `status`, and loads the start page.
 - It fails when the vault does not answer, when the module hash is not on the list of released hashes, when the controllers differ from the recorded ones, when the health value is not `ok`, or when `status` shows a pending recovery, ADR 0007.
-- A pending recovery that you did not start means that someone holds your kit. Open the vault on a device you trust, read the blocking warning, and choose kit replacement or re-key.
+- A pending recovery that you did not start means that someone holds your kit. Run `doctor.sh` and `verify.sh` first, as the rule below says. Then open the vault on a device you trust, read the blocking warning, and choose kit replacement or re-key. If you set the waiting period below 48 hours, run the watchdog twice a day.
 - A failure reaches you through the scheduler: a failed workflow run that is mailed to you, or a local task that shows a notification. `ops-template/` ships a scheduled workflow for a private repository. **DECIDE** (D17)
-- It holds no key and can change nothing. Whoever runs it learns the address of the vault and nothing more.
+- It holds no key and can change nothing. Whoever runs it learns the address of the vault, and whether a recovery is pending.
 - After a failure the rule is: do not unlock before `doctor.sh` and `verify.sh` have run.
 
 **Calendar**

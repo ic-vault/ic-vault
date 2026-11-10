@@ -33,7 +33,7 @@ Proposed: option A.
 - `Status` gets `recovery_pending : bool`. It is true from the first valid call of the kit principal until the recovery is used, cancelled, replaced or lapsed. It carries no time.
 - `watch.sh` fails when the flag is true. That is its fifth cause.
 - The runbook for that alarm says: open the vault on a device you trust, read the blocking warning, and choose kit replacement or re-key.
-- The default wait stays 48 hours. With a daily watchdog the owner gets at least one alarm inside it.
+- The default wait stays 48 hours. With a daily watchdog the owner gets at least one alarm inside it. Whoever sets a shorter wait runs the watchdog twice a day.
 
 What a stranger learns: that someone, perhaps the owner, started a recovery. Not who, not when, and nothing about the contents.
 
@@ -43,5 +43,5 @@ Signed: not yet.
 
 - `docs/implementation-plan.md`: `Status` in 3.2, and the proofs of M1-14 and M4-03.
 - `docs/operations.md` 11.6: the watchdog's list of causes.
-- `VAULT-PLAN.md`: the first row of the table in 7.2, and the `status` bullet in 7.3.
+- `VAULT-PLAN.md`: the first row of the table in 7.2, the `status` bullet in 7.3, and risk R20.
 - Tests. PocketIC: the flag follows the life of a recovery through every ending of correction C31. Scripts: `watch.sh` fails on the flag.

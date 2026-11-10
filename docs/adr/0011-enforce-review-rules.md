@@ -1,9 +1,9 @@
 # ADR 0011: GitHub enforces the review rules
 
-Status: Accepted, by the merge of the pull request that carries it
+Status: Proposed. Needs the owner's signature, because the account for agents and the ruleset are decisions of lane H
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding P1. Widens M0-04
-Decided by: the pull request that merges it. It changes `AGENTS.md`, so it needs the owner's approval, level R2. The settings themselves are a step of lane H
+Decided by: the owner. It also changes `AGENTS.md`, level R2
 
 ## Question
 
@@ -45,5 +45,7 @@ The part of lane H can be done today. It does not have to wait for the workflow:
 ## Consequences
 
 - `AGENTS.md`: rule 20.
-- `docs/implementation-plan.md`: the row of M0-04.
+- `docs/implementation-plan.md`: the row of M0-04, which becomes level R2 because it writes `.github/CODEOWNERS`.
+
+Signed: not yet.
 - The proof of M0-04 grows: a direct push to `main` is refused, and a pull request that touches an R2 path cannot merge without the owner's approval.

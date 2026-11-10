@@ -32,7 +32,7 @@ One bad package, or one agent that follows planted instructions, would reach the
 Proposed: option A.
 
 - A new adversary A15 and a new owner mistake U29 in `docs/threat-model.md`.
-- Operations 11.5: step 2 creates `vault-prod` and the backup controller in the operating environment, not in the development one. The setup-day checklist gets one line.
+- Operations 11.5: step 2 creates both mainnet identities and the backup controller in the operating environment. The development environment works on the local network only, so the staging rehearsal also tests the operating environment. The setup-day checklist gets one line.
 - The operating environment runs only releases that passed the gate. It builds from a signed tag, and compares the hash with the one CI printed, as `build:release` already allows.
 - No agent session is linked to a machine or a user account that can reach `vault-prod`.
 - Whether icp-cli can keep an identity on a hardware key under WSL is not known. The staging rehearsal finds out, next to the keyring question of 11.4.
@@ -42,5 +42,5 @@ Signed: not yet.
 ## Consequences, once signed
 
 - `docs/threat-model.md`: rows A15 and U29, and the count in "What the assessment shows" stays as it is, because U29 ends Low.
-- `docs/operations.md` 11.5: step 2 and the checklist.
+- `docs/operations.md` 11.5: step 2 and the checklist. `VAULT-PLAN.md`: one bullet in 9.6 and one comment in Appendix C.
 - `docs/runbooks/setup-day.md` and `doctor.sh` take it up when their tasks write them, M4-03 and M4-05.

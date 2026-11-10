@@ -47,6 +47,6 @@ Signed: not yet.
 ## Consequences, once signed
 
 - `docs/crypto-spec.md`: the definition in 6.3 and one bullet in 6.4.
-- `docs/implementation-plan.md`: the comment in 3.2, one message in 3.5, the `slot-keys.json` row in 5.2, and the proof of M1-05.
+- `docs/implementation-plan.md`: the comment in 3.2, one message in 3.5, the `slot-keys.json` row in 5.2, and the proofs of M1-05 and M3-05.
 - `VAULT-PLAN.md` 7.2: the bullet about the hash points to the definition.
 - Tests. A fixed value in `slot-keys.json`. In the canister: the hash stays the same when `auth_pub`, `auth_f_pub` or the blob of the slot changes, and changes when any covered field changes.

@@ -78,8 +78,8 @@ Nobody attacks in this table. The owner does something understandable and loses 
 | U25 | Wrong subnet, wrong environment name or no freezing threshold at creation | A weak setup that cannot be changed | Medium | Low | Checks run before the claim link is printed. `doctor.sh`. |
 | U26 | Controller identity lost, for example when WSL is reset | No more upgrades | Medium | Low | Second controller on paper. Migration through backup and restore. |
 | U27 | Unverified build installed | Broken or malicious code | Medium | Low | The upgrade script installs only the hash of a signed release that staging already runs. |
-| U29 | The production controller kept where agents and builds run, or an agent session linked to that machine | One bad package or one misled agent can replace the vault code | Medium | Low | A separate operating environment for `vault-prod`. A line in the setup-day checklist. ADR 0012. |
 | U28 | Things that cannot be replaced stored before stage 3 | A flaw that nobody has looked for exposes what cannot be rotated | Medium | Medium | The statement at setup has to be acknowledged, and the safety check repeats it. Nothing can enforce it. |
+| U29 | The production controller kept where agents and builds run, or an agent session linked to that machine | One bad package or one misled agent can replace the vault code | Medium | Low | A separate operating environment for `vault-prod`. A line in the setup-day checklist. ADR 0012. |
 
 **What the assessment shows**
 

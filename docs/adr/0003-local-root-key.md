@@ -37,6 +37,7 @@ Proposed: option A.
 - **The canister** refuses to install when `local_root_key` is set and the environment is not `local`, when the environment is `local` and it is missing, and when the environment is `local` and `host_suffix` is not `localhost` with an optional port.
 - **`config.json`** carries `api_host` and `root_key`. On `production` and `staging`, `api_host` is `https://icp-api.io` and `root_key` is `null`. On `local`, `api_host` is `null`, which means the page's own origin, and `root_key` is the key in hex.
 - **The app** uses `root_key` only when all three hold: the environment in the config is `local`, the host name is `localhost` or ends in `.localhost`, and the key is present. If a key is present and one of the other two fails, the app refuses to run. In every other case it passes no root key, and the SDK uses its built-in mainnet key.
+- **The local Internet Identity** follows the same rule. Only when the three conditions hold, the app signs in at `http://id.ai.<host suffix>/authorize` and hands the client the same root key. The pinned skill says a local Internet Identity has the canister ids of mainnet. Everywhere else the app uses the default, mainnet Internet Identity.
 - The banner of owner mistake U13 already marks every environment that is not `production`.
 
 Why this is safe enough: a browser resolves `localhost` names to the machine itself, so no mainnet page can pass the host check. Someone who can change the page that is delivered can do worse than change a key, see R1.

@@ -894,7 +894,7 @@ In stage A you hold the controller, and a controller can destroy the vault with 
 - **Scripts only.** Production is touched through `deploy.sh`, `upgrade.sh`, `topup.sh`, `retire.sh`, `verify.sh` and `doctor.sh`. `watch.sh` only reads. No runbook contains a raw `icp` command against production, with one exception: the move runbook deletes a retired canister by hand after 30 days.
 - **No script can delete or reinstall.** Neither a canister deletion nor reinstall mode appears anywhere in `scripts/`. A test searches for both.
 - **Typed confirmation.** Every script takes the environment as its first argument and prints the canister id, the subnet and the current module hash. For production it asks you to type the last five characters of the canister id.
-- **Separate identities.** `vault-staging` uses keyring storage. `vault-prod` uses password storage, and the password is asked on every use, so no script and no agent can use it unattended. The staging identity is not a controller of the production vault, so a staging command cannot reach it. **VERIFY** at M4 whether a keyring exists under WSL. If not, staging uses password storage too.
+- **Separate identities.** Both mainnet identities live in the operating environment of ADR 0012, not where agents and builds run. `vault-staging` uses keyring storage. `vault-prod` uses password storage, and the password is asked on every use, so no script and no agent can use it unattended. The staging identity is not a controller of the production vault, so a staging command cannot reach it. **VERIFY** at M4 whether a keyring exists under WSL. If not, staging uses password storage too.
 - **Backup controller.** `deploy.sh` adds a second controller identity. `icp identity new` shows its seed phrase once. The phrase goes on paper and can be restored with `icp identity import --read-seed-phrase`. A lost laptop or a reset WSL then does not end upgrades. Keep that paper apart from the kit, because a controller key together with the kit skips the waiting period. A hardware key through the `link hsm` option of `icp identity` is the stronger choice. **VERIFY** at M4.
 - **Checks before the claim link.** After creating the canister, `deploy.sh` asserts the subnet, the environment name, the freezing threshold, the controller list and the module hash. Only if all hold does it print the claim link. A canister on the wrong subnet is abandoned unclaimed, which costs the creation fee and nothing else.
 - **`doctor.sh <environment>`** repeats these checks at any time and adds the cycles runway. It prints one line: healthy, or what is wrong.
@@ -1291,7 +1291,7 @@ The gate opens stage 2 of section 1 and nothing more. Once a year the upkeep che
 | R17 | The safeguards are code too | Trash, waiting period and checks add surface that can be wrong | Tests named after each mistake, and all of it inside the review of the release gate. |
 | R18 | Browser extensions | An extension that may read every page sees plaintext and, at setup or recovery, the kit | A browser profile without extensions for the vault. The setup and recovery screens say so. Nothing can enforce it. |
 | R19 | The cooldown delays urgent fixes | In stage B a release can be installed only 7 days after publication | Accepted. Until then the owner can leave the vault locked. |
-| R20 | The watchdog needs an outside scheduler | It learns the address of the vault, and it can stop running unnoticed | It holds no key. The monthly task confirms that it still runs. |
+| R20 | The watchdog needs an outside scheduler | It learns the address of the vault and whether a recovery is pending, and it can stop running unnoticed | It holds no key. The monthly task confirms that it still runs. |
 | R21 | A moved vault exists twice for a while | The old canister still opens with the same kit until it is retired | A move ends with stopping the old canister. Re-key when the move was about trust. |
 | R22 | Any canister can make the vault pay | A call from another canister skips the message hook, and the vault pays for refusing it. Draining a vault costs the caller less than it costs the owner | Refusal in the first statement, generous funding, the watchdog, top-up without unlock. A frozen vault keeps its data for 180 days. |
 | R23 | A controller can turn the vault back | Restoring a snapshot brings back removed unlock keys, an old PIN and a replaced kit | Only a controller can do it, and a controller can replace the code anyway. Stage B removes the outside controller. Devices could remember the newest state they have seen. That is not built in the first version. |
@@ -1392,7 +1392,7 @@ npx skills add dfinity/icskills
 icp network start -d
 icp deploy
 
-# Identities and funding
+# Identities and funding. In the operating environment of ADR 0012, not in the development one
 icp identity new vault-staging --storage keyring
 icp identity new vault-prod --storage password
 icp identity account-id

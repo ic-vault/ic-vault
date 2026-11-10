@@ -24,7 +24,7 @@ An ADR records one decision that settles or changes the spec, the plan, a pin or
 | [0008](0008-exclude-list-at-rekey.md) | No exclude list when a re-key creates the new passkey | Proposed |
 | [0009](0009-sp1-prf-salt-rows.md) | Spike SP1 tests the PRF salt per unlock key | Accepted |
 | [0010](0010-clearing-failed-tries.md) | What clears the count of wrong tries, and when the app asks | Proposed |
-| [0011](0011-enforce-review-rules.md) | GitHub enforces the review rules | Accepted |
+| [0011](0011-enforce-review-rules.md) | GitHub enforces the review rules | Proposed |
 | [0012](0012-development-machine.md) | The development machine and the agents in the threat model | Proposed |
 
 ## Template
