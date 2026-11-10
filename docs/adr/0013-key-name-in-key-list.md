@@ -79,5 +79,5 @@ The card asked only where the name is read from. These details were added by the
   - 3.7: the name of an unlock key as plain text.
   - Proofs of M1-04, M2-03, M3-04, M5-01 and M5-02.
   - M1-01 depends on SP9 and no longer on an open point.
-- `docs/adr/0012-four-gaps-before-freeze.md`, in the same pull request: its open point now names this record.
+- ADR 0012 was merged with this point listed as open. It is an accepted record and is not rewritten. This record is the answer it asks for.
 - The Candid interface changes by one field of one record. This is before the freeze of M1-01, so no deployed canister is touched.

@@ -104,15 +104,15 @@ The owner was asked about the four proposals as ADR 0011 words them. These detai
 - Sessions: what counts as activity, and the two rules for a tie.
 - `tries_left`: that the count includes the try that locks, and how the vault is counted.
 
-## Found by the review: how a label is set and read
+## Still open: how a label is set and read
 
-The fresh review of this record found a fifth gap. ADR 0013 decides it, in the same pull request. It was in section 3 before this record, and the spike did not reach it.
+The fresh review of this record found a fifth gap. It was in section 3 before this record, and the spike did not reach it.
 
 - No worker message of 3.5 takes the text of a label. `setup.build`, `slot.build` and `rekey.build` have no such input, and no message opens a label.
 - No method of 3.2 gives the label of a device key back. `SlotInfo` has none. Only `BackupManifest` carries the label of the kit slot.
 - So the proof of M5-02, "Label and last use shown", cannot be met. After the freeze the fix is a change of the Candid interface.
 
-This record does not decide it. ADR 0013 does.
+This record does not decide it. It needs its own record before M1-01, and M1-01 depends on it.
 
 ## What the spike shows of this
 
@@ -145,7 +145,7 @@ One fact for the tests of M1-05: on PocketIC the message hook reads the time of 
   - 3.2: the comments on `claim_hash`, `BadProof` and `label`. No type and no method changes, so the Candid interface is the same.
   - 3.4: the hook bullet names `claim`, and a new bullet names the label check.
   - Proofs of M1-03, M1-04, M1-05, M1-11, M1-12, M1-13, M2-03, M3-04 and M4-03.
-  - M1-01 depends on SP9.
+  - M1-01 depends on SP9 and on an answer to the open point above.
 - `docs/adr/README.md`: the index, and a note that the numbers 0011 and 0012 were first used by two dropped proposals.
 - `packages/shared/limits.json`, when M1-01 writes it: label bucket 64, claim code 32.
-- The field for the name of an unlock key and the proof of M5-02 are in ADR 0013.
+- The field for the name of an unlock key, its limit of 60 bytes and the proof of M5-02 wait for the record on the open point.
