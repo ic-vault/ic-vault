@@ -31,7 +31,6 @@
 | A12 | Future quantum attacker with recorded traffic | A break of public-key cryptography | All data and slot encryption is symmetric with 256-bit keys. Public-key parts guard access, not data. |
 | A13 | Bad luck: lost devices, lost identity, canister out of cycles | Nothing | Recovery kit, backup files, long freezing threshold, runway warning. |
 | A14 | The owner, by mistake | Every key and every command | The safeguards in the table below. |
-| A15 | Code or instructions that run on the development machine: a poisoned dependency in a build or a test, or an agent that follows planted text | The working copy, and every identity that machine can reach | The production controller does not live there, ADR 0012. GitHub refuses a merge without the owner, ADR 0011. Releases are rebuilt in CI and compared. Dependencies are pinned and 7 days old. What is left is case A7. |
 
 **Owner mistakes**
 
@@ -79,7 +78,6 @@ Nobody attacks in this table. The owner does something understandable and loses 
 | U26 | Controller identity lost, for example when WSL is reset | No more upgrades | Medium | Low | Second controller on paper. Migration through backup and restore. |
 | U27 | Unverified build installed | Broken or malicious code | Medium | Low | The upgrade script installs only the hash of a signed release that staging already runs. |
 | U28 | Things that cannot be replaced stored before stage 3 | A flaw that nobody has looked for exposes what cannot be rotated | Medium | Medium | The statement at setup has to be acknowledged, and the safety check repeats it. Nothing can enforce it. |
-| U29 | The production controller kept where agents and builds run, or an agent session linked to that machine | One bad package or one misled agent can replace the vault code | Medium | Low | A separate operating environment for `vault-prod`. A line in the setup-day checklist. ADR 0012. |
 
 **What the assessment shows**
 

@@ -894,7 +894,7 @@ In stage A you hold the controller, and a controller can destroy the vault with 
 - **Scripts only.** Production is touched through `deploy.sh`, `upgrade.sh`, `topup.sh`, `retire.sh`, `verify.sh` and `doctor.sh`. `watch.sh` only reads. No runbook contains a raw `icp` command against production, with one exception: the move runbook deletes a retired canister by hand after 30 days.
 - **No script can delete or reinstall.** Neither a canister deletion nor reinstall mode appears anywhere in `scripts/`. A test searches for both.
 - **Typed confirmation.** Every script takes the environment as its first argument and prints the canister id, the subnet and the current module hash. For production it asks you to type the last five characters of the canister id.
-- **Separate identities.** Both mainnet identities live in the operating environment of ADR 0012, not where agents and builds run. `vault-staging` uses keyring storage. `vault-prod` uses password storage, and the password is asked on every use, so no script and no agent can use it unattended. The staging identity is not a controller of the production vault, so a staging command cannot reach it. **VERIFY** at M4 whether a keyring exists under WSL. If not, staging uses password storage too.
+- **Separate identities.** `vault-staging` uses keyring storage. `vault-prod` uses password storage, and the password is asked on every use, so no script and no agent can use it unattended. The staging identity is not a controller of the production vault, so a staging command cannot reach it. **VERIFY** at M4 whether a keyring exists under WSL. If not, staging uses password storage too.
 - **Backup controller.** `deploy.sh` adds a second controller identity. `icp identity new` shows its seed phrase once. The phrase goes on paper and can be restored with `icp identity import --read-seed-phrase`. A lost laptop or a reset WSL then does not end upgrades. Keep that paper apart from the kit, because a controller key together with the kit skips the waiting period. A hardware key through the `link hsm` option of `icp identity` is the stronger choice. **VERIFY** at M4.
 - **Checks before the claim link.** After creating the canister, `deploy.sh` asserts the subnet, the environment name, the freezing threshold, the controller list and the module hash. Only if all hold does it print the claim link. A canister on the wrong subnet is abandoned unclaimed, which costs the creation fee and nothing else.
 - **`doctor.sh <environment>`** repeats these checks at any time and adds the cycles runway. It prints one line: healthy, or what is wrong.
@@ -1392,7 +1392,7 @@ npx skills add dfinity/icskills
 icp network start -d
 icp deploy
 
-# Identities and funding. In the operating environment of ADR 0012, not in the development one
+# Identities and funding
 icp identity new vault-staging --storage keyring
 icp identity new vault-prod --storage password
 icp identity account-id

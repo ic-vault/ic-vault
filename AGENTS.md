@@ -62,7 +62,6 @@ Work inside WSL on Windows. The README has the setup.
 17. Every new version of anything is at least 7 days old: packages, crates, tools, container images, skill commits. pnpm enforces it for npm packages. Apply it by hand to the rest.
 18. Text files use LF line endings. A CRLF changes the release hash. `.gitattributes` enforces it.
 19. Where a skill says to install a tool globally, use the pinned copy, such as `pnpm exec icp`.
-20. Never merge a pull request and never change a repository setting. The owner merges. ADR 0011.
 
 ## Dependencies
 

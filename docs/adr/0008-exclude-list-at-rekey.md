@@ -1,6 +1,6 @@
 # ADR 0008: No exclude list when a re-key creates the new passkey
 
-Status: Proposed. Needs the owner's signature, because it changes `docs/crypto-spec.md`
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding D6
 Decided by: the owner
@@ -20,15 +20,15 @@ Not run. It follows from the WebAuthn rules, and task M5-05 has to show it with 
 
 ## Decision
 
-Proposed: the exclude list is used when a device is added, and not at a re-key.
+Chosen: the exclude list is used when a device is added, and not at a re-key.
 
 - **Add a device, and a second unlock key:** the new passkey gets the credential ids of all existing slots as its exclude list, as before.
 - **Re-key:** the exclude list is empty. The fresh user id keeps the old passkey intact until `rekey` has succeeded. Afterwards the interface names the old entry so that you can delete it, as spec 6.4 already says.
 - **Change a PIN** creates no passkey, so nothing changes there.
 
-Signed: not yet.
+Signed: Manuel Rüedi, the owner, on 2026-11-10, in the chat with the agent that wrote this record. The answer, in the owner's words: "Drop 0011 and 0012 for now. Rest is ok". The agent recorded it.
 
-## Consequences, once signed
+## Consequences
 
 - `docs/crypto-spec.md` 6.4: the bullet "Creating a passkey".
 - `docs/implementation-plan.md`: the proofs of M3-02 and M5-05.

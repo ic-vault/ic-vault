@@ -1,6 +1,6 @@
 # ADR 0007: The public status shows a pending recovery
 
-Status: Proposed. Needs the owner's signature, because it changes spec 7.2 and 7.3 and what the public can see
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding D5
 Decided by: the owner
@@ -28,7 +28,7 @@ So if the owner does not open the vault for two days, a thief with a photo of th
 
 ## Decision
 
-Proposed: option A.
+Chosen: option A.
 
 - `Status` gets `recovery_pending : bool`. It is true from the first valid call of the kit principal until the recovery is used, cancelled, replaced or lapsed. It carries no time.
 - `watch.sh` fails when the flag is true. That is its fifth cause.
@@ -37,9 +37,9 @@ Proposed: option A.
 
 What a stranger learns: that someone, perhaps the owner, started a recovery. Not who, not when, and nothing about the contents.
 
-Signed: not yet.
+Signed: Manuel Rüedi, the owner, on 2026-11-10, in the chat with the agent that wrote this record. The answer, in the owner's words: "Drop 0011 and 0012 for now. Rest is ok". The agent recorded it.
 
-## Consequences, once signed
+## Consequences
 
 - `docs/implementation-plan.md`: `Status` in 3.2, and the proofs of M1-14 and M4-03.
 - `docs/operations.md` 11.6: the watchdog's list of causes.

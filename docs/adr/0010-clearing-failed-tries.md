@@ -1,6 +1,6 @@
 # ADR 0010: What clears the count of wrong tries, and when the app asks
 
-Status: Proposed. Needs the owner's signature, because it changes `docs/crypto-spec.md`
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding D8
 Decided by: the owner
@@ -28,7 +28,7 @@ The third limit locks a key "after 30 wrong tries that nobody cleared". What cle
 
 ## Decision
 
-Proposed: the canister rule below, and option A for the app.
+Chosen: the canister rule below, and option A for the app.
 
 **In the canister**
 
@@ -43,9 +43,9 @@ Proposed: the canister rule below, and option A for the app.
 - A key whose count equals the page's own number: the app calls `slot_clear_lock` for that key, sets its own number to zero, and shows one quiet line.
 - Any other key above zero: a blocking alert names the key and the number of tries from elsewhere. It comes at every unlock until it is answered. "They were mine" clears those keys. "Not mine" clears nothing and leads to "Remove a device" and its one question, which ends in a re-key.
 
-Signed: not yet.
+Signed: Manuel Rüedi, the owner, on 2026-11-10, in the chat with the agent that wrote this record. The answer, in the owner's words: "Drop 0011 and 0012 for now. Rest is ok". The agent recorded it.
 
-## Consequences, once signed
+## Consequences
 
 - `docs/crypto-spec.md` 6.4: the end of the "Lockout" bullet.
 - `docs/implementation-plan.md`: `UnlockOk` in 3.2, and the proofs of M1-05, M1-11 and M5-06.

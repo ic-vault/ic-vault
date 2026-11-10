@@ -1,6 +1,6 @@
 # ADR 0004: What the settings hash covers
 
-Status: Proposed. Needs the owner's signature, because it changes `docs/crypto-spec.md`
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding D1
 Decided by: the owner
@@ -29,7 +29,7 @@ Nothing says the hash covers `auth_pub`. Nothing says it does not. An implementi
 
 ## Decision
 
-Proposed: option A, defined in spec 6.3.
+Chosen: option A, defined in spec 6.3.
 
 ```
 settings_hash = SHA-256( lp("ic-vault/v1/slot-settings") || lp(VID) || slot.id || kind
@@ -42,9 +42,9 @@ settings_hash = SHA-256( lp("ic-vault/v1/slot-settings") || lp(VID) || slot.id |
 - The hash never covers a proof key, the wrap byte, the blob, the label, the nonce, a counter or a time.
 - The worker computes the same value from the `SlotInfo` it used, through a new message `settings.hash`, and the app compares the two.
 
-Signed: not yet.
+Signed: Manuel Rüedi, the owner, on 2026-11-10, in the chat with the agent that wrote this record. The answer, in the owner's words: "Drop 0011 and 0012 for now. Rest is ok". The agent recorded it.
 
-## Consequences, once signed
+## Consequences
 
 - `docs/crypto-spec.md`: the definition in 6.3 and one bullet in 6.4.
 - `docs/implementation-plan.md`: the comment in 3.2, one message in 3.5, the `slot-keys.json` row in 5.2, and the proofs of M1-05 and M3-05.

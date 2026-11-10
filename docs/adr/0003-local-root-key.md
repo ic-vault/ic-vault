@@ -1,6 +1,6 @@
 # ADR 0003: How the app learns the root key of a local network
 
-Status: Proposed. Needs the owner's signature, because it changes spec 7.6
+Status: Accepted. Signed by the owner on 2026-11-10
 Date: 2026-11-10
 Task: the review of plan and architecture of 2026-11-10, finding D2. Blocks M0-05
 Decided by: the owner
@@ -31,7 +31,7 @@ So M0-05, M0-06, SP6 and SP8 cannot be built as written. Something has to give.
 
 ## Decision
 
-Proposed: option A.
+Chosen: option A.
 
 - `InstallArgs.Init` gets one more field, `local_root_key : opt blob`.
 - **The canister** refuses to install when `local_root_key` is set and the environment is not `local`, when the environment is `local` and it is missing, and when the environment is `local` and `host_suffix` is not `localhost` with an optional port.
@@ -42,11 +42,10 @@ Proposed: option A.
 
 Why this is safe enough: a browser resolves `localhost` names to the machine itself, so no mainnet page can pass the host check. Someone who can change the page that is delivered can do worse than change a key, see R1.
 
-Signed: not yet.
+Signed: Manuel Rüedi, the owner, on 2026-11-10, in the chat with the agent that wrote this record. The answer, in the owner's words: "Drop 0011 and 0012 for now. Rest is ok". The agent recorded it.
 
-## Consequences, once signed
+## Consequences
 
 - `docs/implementation-plan.md`: `InstallArgs` in 3.2, the `Config` line in 3.3, section 3.9, step 6 of the gate in 5.1, and the proof of M0-05.
 - `VAULT-PLAN.md`: one bullet in 7.6 and one in 8.2.
 - Tests. PocketIC: the three refusals at install. Web app: a key on a host that is not loopback stops the app, and no key means the built-in key. Bundle: still no `fetchRootKey`.
-- If you prefer option C, this pull request drops these edits and M0-05 gets a second build target instead.
